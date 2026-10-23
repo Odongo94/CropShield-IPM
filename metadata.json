@@ -1,0 +1,6 @@
+{
+  "name": "CropShield IPM",
+  "description": "Offline crop agronomy, weed bio-indicator soil diagnostician, crop pathology, agricultural entomology, precision scouting sheets, GPS field mapping, and soil & water conservation suite signed off by Crop Scientist Odongo Vincent.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
