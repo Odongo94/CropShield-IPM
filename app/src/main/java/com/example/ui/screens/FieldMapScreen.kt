@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
+import androidx.compose.runtime.DisposableEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -157,6 +159,75 @@ fun FieldMapScreen(
     var currentGpsLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var gpsTelemetry by remember { mutableStateOf<GpsPrecisionTelemetry?>(null) }
     var isWalkingModeEnabled by remember { mutableStateOf(false) }
+    var isFollowFarmerEnabled by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Real-Time LocationListener
+    val realTimeLocationListener = remember {
+        object : LocationListener {
+            override fun onLocationChanged(loc: Location) {
+                val isFine = loc.hasAccuracy() && loc.accuracy <= 5.0f
+                val providerLabel = if (loc.provider == LocationManager.GPS_PROVIDER) "Satellite GPS (Real-Time)" else "Network Triangulation"
+                val telemetry = GpsPrecisionTelemetry(
+                    latitude = loc.latitude,
+                    longitude = loc.longitude,
+                    altitudeMeters = loc.altitude,
+                    accuracyMeters = if (loc.hasAccuracy()) loc.accuracy else 2.5f,
+                    speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else 0f,
+                    bearingDegrees = if (loc.hasBearing()) loc.bearing else 0f,
+                    isHighPrecision = isFine,
+                    provider = providerLabel,
+                    timestamp = loc.time
+                )
+                gpsTelemetry = telemetry
+                val pt = GeoPoint(loc.latitude, loc.longitude)
+                currentGpsLocation = pt
+
+                if (isFollowFarmerEnabled) {
+                    centerLat = pt.latitude
+                    centerLng = pt.longitude
+                }
+
+                if (isWalkingModeEnabled) {
+                    val lastPt = boundaryPoints.lastOrNull()
+                    if (lastPt == null || FieldGeometryUtil.haversineDistanceMeters(lastPt, pt) >= 3.0) {
+                        boundaryPoints.add(pt)
+                    }
+                }
+            }
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }
+    }
+
+    // Register Continuous Real-Time GPS updates
+    DisposableEffect(hasLocationPermission) {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (lm != null && (fineGranted || coarseGranted)) {
+            try {
+                if (fineGranted && lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1.0f, realTimeLocationListener)
+                }
+                if (coarseGranted && lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000L, 2.0f, realTimeLocationListener)
+                }
+            } catch (_: SecurityException) {}
+        }
+
+        onDispose {
+            try {
+                lm?.removeUpdates(realTimeLocationListener)
+            } catch (_: Exception) {}
+        }
+    }
 
     // Dialog & Sheet States
     var showLayerMenu by remember { mutableStateOf(false) }
@@ -174,6 +245,7 @@ fun FieldMapScreen(
         val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
         val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (fineGranted || coarseGranted) {
+            hasLocationPermission = true
             fetchDeviceLocation(context) { loc, telemetry ->
                 gpsTelemetry = telemetry
                 if (loc != null) {
@@ -194,6 +266,7 @@ fun FieldMapScreen(
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (fine || coarse) {
+            hasLocationPermission = true
             fetchDeviceLocation(context) { loc, telemetry ->
                 gpsTelemetry = telemetry
                 if (loc != null) {
@@ -205,7 +278,7 @@ fun FieldMapScreen(
                         boundaryPoints.add(pt)
                     }
                 } else {
-                    Toast.makeText(context, "Acquiring precision GPS fix... try again in a moment.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Acquiring real-time satellite GPS fix...", Toast.LENGTH_SHORT).show()
                 }
             }
         } else {
@@ -550,14 +623,34 @@ fun FieldMapScreen(
                                             Text(
                                                 text = "${gpsTelemetry!!.provider} (±${String.format("%.1f", gpsTelemetry!!.accuracyMeters)}m)",
                                                 style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
                                                 color = if (gpsTelemetry!!.isHighPrecision) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         Text(
-                                            text = "${String.format("%.4f", gpsTelemetry!!.latitude)}, ${String.format("%.4f", gpsTelemetry!!.longitude)}",
+                                            text = "${String.format("%.6f", gpsTelemetry!!.latitude)}°, ${String.format("%.6f", gpsTelemetry!!.longitude)}°",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Alt: ${gpsTelemetry!!.altitudeMeters.toInt()}m ASL • Speed: ${String.format("%.1f", gpsTelemetry!!.speedKmh)} km/h",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = if (isFollowFarmerEnabled) "● LIVE TRACKING LOCKED" else "Tap GPS to Lock",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isFollowFarmerEnabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                                         )
                                     }
                                 }
@@ -599,11 +692,20 @@ fun FieldMapScreen(
                     Icon(imageVector = Icons.Default.Remove, contentDescription = "Zoom Out")
                 }
 
-                // GPS My Location
+                // GPS My Location & Real-Time Tracking Lock
                 FloatingActionButton(
-                    onClick = { checkAndRequestLocation() },
-                    containerColor = if (currentGpsLocation != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.primary,
+                    onClick = {
+                        checkAndRequestLocation()
+                        if (currentGpsLocation != null) {
+                            centerLat = currentGpsLocation!!.latitude
+                            centerLng = currentGpsLocation!!.longitude
+                            isFollowFarmerEnabled = !isFollowFarmerEnabled
+                            val msg = if (isFollowFarmerEnabled) "Live GPS Locked: Map following your real-time position" else "Free Pan Mode: You can freely scroll the map"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    containerColor = if (isFollowFarmerEnabled) MaterialTheme.colorScheme.primary else if (currentGpsLocation != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                    contentColor = if (isFollowFarmerEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.testTag("action_my_location")
                 ) {
                     Icon(imageVector = Icons.Default.MyLocation, contentDescription = "My GPS Location")

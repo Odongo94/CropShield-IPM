@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.ZoomIn
 import com.example.data.science.WeedSoilScienceCatalog
@@ -116,6 +117,7 @@ import com.example.model.WeedType
 import com.example.viewmodel.WeatherUiState
 
 enum class AgronomySubTab(val title: String, val icon: ImageVector) {
+    CROP_GUIDES("Crop Library", Icons.Default.MenuBook),
     WEED_SOIL("Weed & Soil", Icons.Default.Grass),
     SCIENCES("Agri-Science", Icons.Default.Science),
     FERTILIZER("Fertilizer Calc", Icons.Default.Agriculture),
@@ -186,6 +188,20 @@ fun AgronomyScreen(
         }
 
         when (activeTab) {
+            AgronomySubTab.CROP_GUIDES -> {
+                CropProductionLibraryView(
+                    onCalculateFertilizer = { cropName ->
+                        val matchedPlan = AgronomyCatalog.cropFertilizerPlans.find {
+                            it.cropName.contains(cropName, ignoreCase = true) || cropName.contains(it.cropName, ignoreCase = true)
+                        }
+                        if (matchedPlan != null) {
+                            onCropPlanSelected(matchedPlan)
+                        }
+                        activeTab = AgronomySubTab.FERTILIZER
+                    }
+                )
+            }
+
             AgronomySubTab.WEED_SOIL -> {
                 Column(modifier = Modifier.fillMaxSize()) {
                     PrimaryTabRow(

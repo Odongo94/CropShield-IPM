@@ -1,12 +1,13 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,58 +23,47 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -82,21 +72,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import com.example.data.scouting.ScoutingProtocolCatalog
-import com.example.model.DeveloperInfo
-import com.example.model.ScoutingInspectionRow
-import com.example.model.ScoutingProtocolItem
-import com.example.model.ScoutingSheetReport
+import com.example.model.BayScoutingRow
+import com.example.model.CommercialScoutingSheet
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-enum class ScoutingSheetTab(val title: String) {
-    INSPECTION_TABLE("Scouting Table Sheet"),
-    PROTOCOLS_GUIDE("IPM Protocol Matrix")
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,50 +87,51 @@ fun ScoutingSheetScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var activeTab by remember { mutableStateOf(ScoutingSheetTab.INSPECTION_TABLE) }
 
-    // Scouting Sheet Metadata
-    var farmName by remember { mutableStateOf("Nakuru Agri-Farm Block A") }
-    var blockName by remember { mutableStateOf("Plot 3 - Upper Ridge") }
-    var targetCrop by remember { mutableStateOf("Maize") }
-    var scoutName by remember { mutableStateOf("Lead Scout") }
-    val todayDate = remember {
-        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date())
+    // Metadata matching the paper scouting form
+    var farmName by remember { mutableStateOf("Shalimar Fresh Limited") }
+    var phase by remember { mutableStateOf("Phase 1") }
+    var ghNo by remember { mutableStateOf("GH 01") }
+    var wkNo by remember { mutableStateOf("WK 43") }
+    var sheetDate by remember {
+        mutableStateOf(SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()))
     }
 
-    // Dynamic Inspection Rows
-    val inspectionRows = remember {
-        mutableStateListOf<ScoutingInspectionRow>().apply {
-            addAll(ScoutingProtocolCatalog.getSampleInspectionRows())
+    // Interactive Bays list
+    val bayRows = remember {
+        mutableStateListOf<BayScoutingRow>().apply {
+            // Default 30 standard bays as shown in the paper form
+            for (i in 1..30) {
+                add(
+                    when (i) {
+                        1 -> BayScoutingRow(bayNo = 1, helLarvae = 1, mites = 2, downyMildew = 1, comments = "Spot spray bay 1-3")
+                        2 -> BayScoutingRow(bayNo = 2, depLarvae = 1, thrips = 3, comments = "Thrips hot spot")
+                        3 -> BayScoutingRow(bayNo = 3, helEggs = 2, helMoth = true, whiteflies = true, comments = "Moth observed at vent")
+                        4 -> BayScoutingRow(bayNo = 4, powderyMildew = 2, weeds = 1, comments = "De-leaf bottom canopy")
+                        5 -> BayScoutingRow(bayNo = 5, fcmLarvae = 0, aphids = 5, comments = "Aphid colony on tender shoots")
+                        8 -> BayScoutingRow(bayNo = 8, botrytis = 1, leafspot = 1, comments = "Ventilation check")
+                        12 -> BayScoutingRow(bayNo = 12, depMoth = true, othersMoth = true, comments = "Delta trap replacement")
+                        15 -> BayScoutingRow(bayNo = 15, helLarvae = 2, mites = 4, comments = "Phytoseiid release")
+                        20 -> BayScoutingRow(bayNo = 20, downyMildew = 2, comments = "Fungicide rotation")
+                        else -> BayScoutingRow(bayNo = i)
+                    }
+                )
+            }
         }
     }
 
-    // Dialog state for adding inspection row
-    var showAddRowDialog by remember { mutableStateOf(false) }
-    var showAgronomistInfoDialog by remember { mutableStateOf(false) }
+    // Dialog state for editing a row
+    var editingRowIndex by remember { mutableStateOf<Int?>(null) }
+    var showEditMetaDialog by remember { mutableStateOf(false) }
 
-    // Protocol filter state
-    var selectedProtocolCrop by remember { mutableStateOf("All") }
-    var protocolSearchQuery by remember { mutableStateOf("") }
-
-    val filteredProtocols = remember(selectedProtocolCrop, protocolSearchQuery) {
-        ScoutingProtocolCatalog.protocols.filter { proto ->
-            (selectedProtocolCrop == "All" || proto.cropName.contains(selectedProtocolCrop, ignoreCase = true)) &&
-                    (protocolSearchQuery.isBlank() ||
-                            proto.threatName.contains(protocolSearchQuery, ignoreCase = true) ||
-                            proto.cropName.contains(protocolSearchQuery, ignoreCase = true) ||
-                            proto.actionThreshold.contains(protocolSearchQuery, ignoreCase = true))
-        }
-    }
-
-    val report = remember(farmName, blockName, targetCrop, scoutName, inspectionRows.toList()) {
-        ScoutingSheetReport(
+    val currentSheet = remember(farmName, phase, ghNo, wkNo, sheetDate, bayRows.toList()) {
+        CommercialScoutingSheet(
             farmName = farmName,
-            blockName = blockName,
-            cropName = targetCrop,
-            dateInspected = todayDate,
-            scoutName = scoutName,
-            rows = inspectionRows.toList()
+            phase = phase,
+            ghNo = ghNo,
+            wkNo = wkNo,
+            date = sheetDate,
+            rows = bayRows.toList()
         )
     }
 
@@ -156,18 +139,11 @@ fun ScoutingSheetScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Scouting Sheets & Protocols",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Standard IPM Tables • Certified by ${DeveloperInfo.NAME}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Scouting Sheet",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
                     IconButton(
@@ -178,50 +154,43 @@ fun ScoutingSheetScreen(
                     }
                 },
                 actions = {
-                    // Agronomist details button
+                    // Quick edit metadata
                     IconButton(
-                        onClick = { showAgronomistInfoDialog = true },
-                        modifier = Modifier.testTag("action_view_agronomist_info")
+                        onClick = { showEditMetaDialog = true },
+                        modifier = Modifier.testTag("action_edit_metadata")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Agronomist Details",
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Farm Info",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    // Share button
+                    // Copy Table CSV
                     IconButton(
-                        onClick = { shareScoutingTable(context, report) },
-                        modifier = Modifier.testTag("action_share_scout_table")
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            val clip = ClipData.newPlainText("Scouting Sheet CSV", currentSheet.toExcelCsv())
+                            clipboard?.setPrimaryClip(clip)
+                            Toast.makeText(context, "Scouting Sheet copied to clipboard in Excel CSV format!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.testTag("action_copy_csv")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share Table",
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Table as CSV",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    // Download CSV button
+                    // Export to Excel .csv file
                     IconButton(
-                        onClick = { exportCsvFile(context, report) },
-                        modifier = Modifier.testTag("action_download_scout_csv")
+                        onClick = { exportScoutingSheetToExcel(context, currentSheet) },
+                        modifier = Modifier.testTag("action_export_excel_csv")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Download,
-                            contentDescription = "Download CSV Sheet",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    // Print / HTML View
-                    IconButton(
-                        onClick = { printHtmlReport(context, report) },
-                        modifier = Modifier.testTag("action_print_scout_html")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Print,
-                            contentDescription = "Printable Table",
+                            contentDescription = "Export to Excel (.csv)",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -236,604 +205,775 @@ fun ScoutingSheetScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // LEAD AGRONOMIST CONTACT HEADER CARD
-            LeadAgronomistCard(onContactClick = { showAgronomistInfoDialog = true })
-
-            // TAB SELECTOR
-            PrimaryTabRow(
-                selectedTabIndex = activeTab.ordinal,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth().testTag("scout_sheet_tabs")
+            // Farm Metadata Strip in Table Format
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                ScoutingSheetTab.values().forEach { tab ->
-                    Tab(
-                        selected = activeTab == tab,
-                        onClick = { activeTab = tab },
-                        text = {
-                            Text(
-                                text = tab.title,
-                                fontWeight = if (activeTab == tab) FontWeight.Bold else FontWeight.Medium
-                            )
-                        }
-                    )
-                }
-            }
-
-            when (activeTab) {
-                ScoutingSheetTab.INSPECTION_TABLE -> {
-                    InspectionTableContent(
-                        report = report,
-                        rows = inspectionRows,
-                        onAddRowClick = { showAddRowDialog = true },
-                        onDeleteRow = { row -> inspectionRows.remove(row) },
-                        onShareClick = { shareScoutingTable(context, report) },
-                        onDownloadCsv = { exportCsvFile(context, report) },
-                        onPrintHtml = { printHtmlReport(context, report) }
-                    )
-                }
-
-                ScoutingSheetTab.PROTOCOLS_GUIDE -> {
-                    ProtocolsGuideContent(
-                        protocols = filteredProtocols,
-                        selectedCrop = selectedProtocolCrop,
-                        searchQuery = protocolSearchQuery,
-                        onCropSelect = { selectedProtocolCrop = it },
-                        onQueryChange = { protocolSearchQuery = it }
-                    )
-                }
-            }
-        }
-    }
-
-    // ADD INSPECTION ROW DIALOG
-    if (showAddRowDialog) {
-        AddInspectionRowDialog(
-            nextStation = inspectionRows.size + 1,
-            defaultCrop = targetCrop,
-            onDismiss = { showAddRowDialog = false },
-            onAddRow = { newRow ->
-                inspectionRows.add(newRow)
-                showAddRowDialog = false
-            }
-        )
-    }
-
-    // DEVELOPER & CROP SCIENTIST PROFILE DIALOG
-    if (showAgronomistInfoDialog) {
-        AgronomistProfileDialog(onDismiss = { showAgronomistInfoDialog = false })
-    }
-}
-
-// =============================================================================
-// LEAD AGRONOMIST PROFILE CARD
-// =============================================================================
-@Composable
-private fun LeadAgronomistCard(onContactClick: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        modifier = Modifier.fillMaxWidth().testTag("lead_agronomist_card")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = DeveloperInfo.NAME,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(1.dp)
-                        ) {
-                            Text(
-                                text = DeveloperInfo.TITLE,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Tel: ${DeveloperInfo.PHONE} • ${DeveloperInfo.EMAIL}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
-                }
-            }
-
-            OutlinedButton(
-                onClick = onContactClick,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.height(34.dp)
-            ) {
-                Text("Contact", style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-}
-
-// =============================================================================
-// TAB 1: FIELD INSPECTION TABLE CONTENT
-// =============================================================================
-@Composable
-private fun InspectionTableContent(
-    report: ScoutingSheetReport,
-    rows: List<ScoutingInspectionRow>,
-    onAddRowClick: () -> Unit,
-    onDeleteRow: (ScoutingInspectionRow) -> Unit,
-    onShareClick: () -> Unit,
-    onDownloadCsv: () -> Unit,
-    onPrintHtml: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp)
-    ) {
-        // Quick Action Bar for Table
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "${report.farmName} • ${report.dateInspected}",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "${rows.size} Stations Sampled | Target Crop: ${report.cropName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(
-                    onClick = onAddRowClick,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.height(36.dp).testTag("btn_add_station_row")
-                ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("+ Station", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // HORIZONTALLY SCROLLABLE STRUCTURED DATA TABLE
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .testTag("scouting_tabular_grid")
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Table Header Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primary)
-                        .padding(vertical = 10.dp, horizontal = 8.dp)
-                        .horizontalScroll(rememberScrollState()),
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TableHeaderCell("Station", width = 65.dp)
-                    TableHeaderCell("Plot Location", width = 130.dp)
-                    TableHeaderCell("Pest / Disease", width = 160.dp)
-                    TableHeaderCell("Sampled", width = 75.dp)
-                    TableHeaderCell("Incidence", width = 85.dp)
-                    TableHeaderCell("Severity", width = 75.dp)
-                    TableHeaderCell("Stage", width = 120.dp)
-                    TableHeaderCell("Action Status", width = 130.dp)
-                    TableHeaderCell("Notes / Guidance", width = 160.dp)
-                    TableHeaderCell("Action", width = 55.dp)
-                }
+                    MetaTag(label = "FARM", value = farmName)
+                    MetaTag(label = "PHASE", value = phase)
+                    MetaTag(label = "GH No.", value = ghNo)
+                    MetaTag(label = "WK No.", value = wkNo)
+                    MetaTag(label = "DATE", value = sheetDate)
+                    MetaTag(label = "TOTAL BAYS", value = "${bayRows.size}")
 
-                // Table Data Rows
-                if (rows.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No scouting stations recorded. Tap '+ Station' to log an inspection.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Export to Excel button right on the bar
+                    Button(
+                        onClick = { exportScoutingSheetToExcel(context, currentSheet) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("btn_export_excel_top")
+                    ) {
+                        Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Export to Excel (.csv)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(rows) { row ->
-                            val statusColor = when (row.actionStatus) {
-                                "ACTION REQUIRED" -> MaterialTheme.colorScheme.error
-                                "MONITOR (3 DAYS)" -> Color(0xFFF57C00)
-                                else -> Color(0xFF388E3C)
-                            }
+                }
+            }
+
+            HorizontalDivider()
+
+            // Instructions text
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Tap any cell or row to edit counts, toggle moths/whiteflies, or enter scouting comments. Total Counts update automatically.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+
+                TextButton(
+                    onClick = {
+                        val nextBay = (bayRows.maxOfOrNull { it.bayNo } ?: 0) + 1
+                        bayRows.add(BayScoutingRow(bayNo = nextBay))
+                        Toast.makeText(context, "Added Bay $nextBay", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.testTag("btn_add_bay")
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add Bay")
+                }
+            }
+
+            // Main Table View
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                val horizontalScrollState = rememberScrollState()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(horizontalScrollState)
+                ) {
+                    // Two-tiered Header Row matching the paper form:
+                    // Top Header: CATEGORIES
+                    Row(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HeaderCell(text = "BAY", width = 64.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "CATERPILLARS (LARVAE)", width = 168.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "EGGS", width = 168.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "MOTH / PUPA", width = 168.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "OTHER PESTS", width = 232.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "DISEASES", width = 240.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "WEEDS", width = 64.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "COMMENTS / ACTION REQUIRED", width = 260.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                        HeaderCell(text = "ACTION", width = 60.dp, textColor = MaterialTheme.colorScheme.onPrimary)
+                    }
+
+                    // Sub-Header: Specific Columns
+                    Row(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SubHeaderCell(text = "No.", width = 64.dp)
+                        // Caterpillars
+                        SubHeaderCell(text = "Hel", width = 56.dp)
+                        SubHeaderCell(text = "Dep", width = 56.dp)
+                        SubHeaderCell(text = "Fcm", width = 56.dp)
+                        // Eggs
+                        SubHeaderCell(text = "Hel", width = 56.dp)
+                        SubHeaderCell(text = "Dep", width = 56.dp)
+                        SubHeaderCell(text = "Other", width = 56.dp)
+                        // Moth / Pupa
+                        SubHeaderCell(text = "Hel", width = 56.dp)
+                        SubHeaderCell(text = "Dep", width = 56.dp)
+                        SubHeaderCell(text = "Others", width = 56.dp)
+                        // Other pests
+                        SubHeaderCell(text = "Mites", width = 58.dp)
+                        SubHeaderCell(text = "Thrips", width = 58.dp)
+                        SubHeaderCell(text = "Aphids", width = 58.dp)
+                        SubHeaderCell(text = "W-Flies", width = 58.dp)
+                        // Diseases
+                        SubHeaderCell(text = "Downy", width = 60.dp)
+                        SubHeaderCell(text = "Powd", width = 60.dp)
+                        SubHeaderCell(text = "Botry", width = 60.dp)
+                        SubHeaderCell(text = "Leafsp", width = 60.dp)
+                        // Weeds
+                        SubHeaderCell(text = "Count", width = 64.dp)
+                        // Comments
+                        SubHeaderCell(text = "Action / Observation", width = 260.dp)
+                        SubHeaderCell(text = "Edit", width = 60.dp)
+                    }
+
+                    // Rows
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        items(bayRows.indices.toList()) { index ->
+                            val row = bayRows[index]
+                            val isEven = index % 2 == 0
+                            val rowBg = if (isEven) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
 
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp, horizontal = 8.dp)
-                                    .horizontalScroll(rememberScrollState()),
+                                    .background(rowBg)
+                                    .clickable { editingRowIndex = index }
+                                    .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                TableDataCell("#${row.stationNumber}", width = 65.dp, bold = true)
-                                TableDataCell(row.plotLocation, width = 130.dp)
-                                TableDataCell(row.threatName, width = 160.dp, bold = true, color = MaterialTheme.colorScheme.primary)
-                                TableDataCell("${row.plantsInfested}/${row.plantsSampled}", width = 75.dp)
-                                TableDataCell("${String.format("%.1f", row.incidencePercent)}%", width = 85.dp, bold = true)
-                                TableDataCell("${row.severityRating}/5", width = 75.dp)
-                                TableDataCell(row.stageObserved.ifBlank { "-" }, width = 120.dp)
+                                // BAY No.
+                                TableCell(text = "${row.bayNo}", width = 64.dp, isBold = true, textColor = MaterialTheme.colorScheme.primary)
 
-                                // Status Badge Cell
-                                Box(modifier = Modifier.width(130.dp)) {
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = statusColor.copy(alpha = 0.15f),
-                                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
-                                    ) {
-                                        Text(
-                                            text = row.actionStatus,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                            color = statusColor,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
+                                // Caterpillars
+                                TableCell(text = if (row.helLarvae > 0) "${row.helLarvae}" else "-", width = 56.dp, isHighlighted = row.helLarvae > 0)
+                                TableCell(text = if (row.depLarvae > 0) "${row.depLarvae}" else "-", width = 56.dp, isHighlighted = row.depLarvae > 0)
+                                TableCell(text = if (row.fcmLarvae > 0) "${row.fcmLarvae}" else "-", width = 56.dp, isHighlighted = row.fcmLarvae > 0)
 
-                                TableDataCell(row.notes.ifBlank { "-" }, width = 160.dp)
+                                // Eggs
+                                TableCell(text = if (row.helEggs > 0) "${row.helEggs}" else "-", width = 56.dp, isHighlighted = row.helEggs > 0)
+                                TableCell(text = if (row.depEggs > 0) "${row.depEggs}" else "-", width = 56.dp, isHighlighted = row.depEggs > 0)
+                                TableCell(text = if (row.otherEggs > 0) "${row.otherEggs}" else "-", width = 56.dp, isHighlighted = row.otherEggs > 0)
 
-                                Box(modifier = Modifier.width(55.dp)) {
-                                    IconButton(
-                                        onClick = { onDeleteRow(row) },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                    }
-                                }
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                        }
-                    }
-                }
-            }
-        }
+                                // Moth / Pupa (Ticks)
+                                TickCell(isTicked = row.helMoth, width = 56.dp, onToggle = {
+                                    bayRows[index] = row.copy(helMoth = !row.helMoth)
+                                })
+                                TickCell(isTicked = row.depMoth, width = 56.dp, onToggle = {
+                                    bayRows[index] = row.copy(depMoth = !row.depMoth)
+                                })
+                                TickCell(isTicked = row.othersMoth, width = 56.dp, onToggle = {
+                                    bayRows[index] = row.copy(othersMoth = !row.othersMoth)
+                                })
 
-        Spacer(modifier = Modifier.height(10.dp))
+                                // Other Pests
+                                TableCell(text = if (row.mites > 0) "${row.mites}" else "-", width = 58.dp, isHighlighted = row.mites > 0)
+                                TableCell(text = if (row.thrips > 0) "${row.thrips}" else "-", width = 58.dp, isHighlighted = row.thrips > 0)
+                                TableCell(text = if (row.aphids > 0) "${row.aphids}" else "-", width = 58.dp, isHighlighted = row.aphids > 0)
+                                TickCell(isTicked = row.whiteflies, width = 58.dp, onToggle = {
+                                    bayRows[index] = row.copy(whiteflies = !row.whiteflies)
+                                })
 
-        // Export Actions Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                onClick = onShareClick,
-                modifier = Modifier.weight(1f).testTag("action_share_table_text")
-            ) {
-                Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Share (WhatsApp)", style = MaterialTheme.typography.labelSmall)
-            }
+                                // Diseases
+                                TableCell(text = if (row.downyMildew > 0) "${row.downyMildew}" else "-", width = 60.dp, isHighlighted = row.downyMildew > 0)
+                                TableCell(text = if (row.powderyMildew > 0) "${row.powderyMildew}" else "-", width = 60.dp, isHighlighted = row.powderyMildew > 0)
+                                TableCell(text = if (row.botrytis > 0) "${row.botrytis}" else "-", width = 60.dp, isHighlighted = row.botrytis > 0)
+                                TableCell(text = if (row.leafspot > 0) "${row.leafspot}" else "-", width = 60.dp, isHighlighted = row.leafspot > 0)
 
-            Button(
-                onClick = onDownloadCsv,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.weight(1f).testTag("action_download_csv_file")
-            ) {
-                Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Download CSV", style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-}
+                                // Weeds
+                                TableCell(text = if (row.weeds > 0) "${row.weeds}" else "-", width = 64.dp, isHighlighted = row.weeds > 0)
 
-// =============================================================================
-// TAB 2: IPM PROTOCOLS & ACTION THRESHOLDS GUIDE (TABLE)
-// =============================================================================
-@Composable
-private fun ProtocolsGuideContent(
-    protocols: List<ScoutingProtocolItem>,
-    selectedCrop: String,
-    searchQuery: String,
-    onCropSelect: (String) -> Unit,
-    onQueryChange: (String) -> Unit
-) {
-    val crops = listOf("All", "Maize", "Tomato", "Potato", "French Beans", "Coffee", "Cabbage")
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp)
-    ) {
-        // Crop Filter Chips
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            crops.forEach { crop ->
-                FilterChip(
-                    selected = selectedCrop == crop,
-                    onClick = { onCropSelect(crop) },
-                    label = { Text(crop) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Search field
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onQueryChange,
-            placeholder = { Text("Search crop, pest, threshold...") },
-            leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("input_search_protocols")
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Protocols List / Table Cards
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(protocols) { proto ->
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                    modifier = Modifier.fillMaxWidth().testTag("protocol_item_${proto.id}")
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                                // Comments / Action Required
                                 Text(
-                                    text = proto.threatName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "${proto.cropName} • ${proto.scientificName}",
+                                    text = row.comments.ifEmpty { "-" },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .width(260.dp)
+                                        .padding(horizontal = 8.dp)
                                 )
-                            }
 
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (proto.urgencyLevel == "Critical") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Text(
-                                    text = proto.urgencyLevel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (proto.urgencyLevel == "Critical") MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
+                                // Action icon
+                                IconButton(
+                                    onClick = { editingRowIndex = index },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit Bay", modifier = Modifier.size(16.dp))
+                                }
                             }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
+                    }
 
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    // TOTAL COUNTS ROW (Bottom Row)
+                    val totHelL = bayRows.sumOf { it.helLarvae }
+                    val totDepL = bayRows.sumOf { it.depLarvae }
+                    val totFcmL = bayRows.sumOf { it.fcmLarvae }
+                    val totHelE = bayRows.sumOf { it.helEggs }
+                    val totDepE = bayRows.sumOf { it.depEggs }
+                    val totOthE = bayRows.sumOf { it.otherEggs }
+                    val totHelM = bayRows.count { it.helMoth }
+                    val totDepM = bayRows.count { it.depMoth }
+                    val totOthM = bayRows.count { it.othersMoth }
+                    val totMites = bayRows.sumOf { it.mites }
+                    val totThrips = bayRows.sumOf { it.thrips }
+                    val totAphids = bayRows.sumOf { it.aphids }
+                    val totWf = bayRows.count { it.whiteflies }
+                    val totDowny = bayRows.sumOf { it.downyMildew }
+                    val totPowdery = bayRows.sumOf { it.powderyMildew }
+                    val totBotrytis = bayRows.sumOf { it.botrytis }
+                    val totLeafspot = bayRows.sumOf { it.leafspot }
+                    val totWeeds = bayRows.sumOf { it.weeds }
 
-                        ProtocolRowItem(label = "Sampling Pattern:", value = proto.samplingPattern)
-                        ProtocolRowItem(label = "Sampling Unit:", value = proto.samplingUnit)
-                        ProtocolRowItem(label = "Action Threshold (EIL):", value = proto.actionThreshold, highlight = true)
-                        ProtocolRowItem(label = "Severity Scale (1-5):", value = proto.severityScaleGuide)
-                        ProtocolRowItem(label = "Recommended IPM Action:", value = proto.ipmIntervention)
+                    Row(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TableCell(text = "Total Counts", width = 64.dp, isBold = true, textColor = MaterialTheme.colorScheme.onPrimaryContainer)
+
+                        // Caterpillars
+                        TableCell(text = "$totHelL", width = 56.dp, isBold = true)
+                        TableCell(text = "$totDepL", width = 56.dp, isBold = true)
+                        TableCell(text = "$totFcmL", width = 56.dp, isBold = true)
+
+                        // Eggs
+                        TableCell(text = "$totHelE", width = 56.dp, isBold = true)
+                        TableCell(text = "$totDepE", width = 56.dp, isBold = true)
+                        TableCell(text = "$totOthE", width = 56.dp, isBold = true)
+
+                        // Moth / Pupa
+                        TableCell(text = "$totHelM", width = 56.dp, isBold = true)
+                        TableCell(text = "$totDepM", width = 56.dp, isBold = true)
+                        TableCell(text = "$totOthM", width = 56.dp, isBold = true)
+
+                        // Other Pests
+                        TableCell(text = "$totMites", width = 58.dp, isBold = true)
+                        TableCell(text = "$totThrips", width = 58.dp, isBold = true)
+                        TableCell(text = "$totAphids", width = 58.dp, isBold = true)
+                        TableCell(text = "$totWf", width = 58.dp, isBold = true)
+
+                        // Diseases
+                        TableCell(text = "$totDowny", width = 60.dp, isBold = true)
+                        TableCell(text = "$totPowdery", width = 60.dp, isBold = true)
+                        TableCell(text = "$totBotrytis", width = 60.dp, isBold = true)
+                        TableCell(text = "$totLeafspot", width = 60.dp, isBold = true)
+
+                        // Weeds
+                        TableCell(text = "$totWeeds", width = 64.dp, isBold = true)
+
+                        // End spacer
+                        Box(modifier = Modifier.width(320.dp).padding(horizontal = 8.dp)) {
+                            Text(
+                                text = "Ready for Excel Export",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Bottom Action Bar: Clear / Reset / Export
+            Surface(
+                tonalElevation = 3.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            val clip = ClipData.newPlainText("Scouting Sheet CSV", currentSheet.toExcelCsv())
+                            clipboard?.setPrimaryClip(clip)
+                            Toast.makeText(context, "Scouting Sheet CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("btn_copy_csv_bottom")
+                    ) {
+                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Copy CSV", fontSize = 13.sp)
+                    }
+
+                    Button(
+                        onClick = { exportScoutingSheetToExcel(context, currentSheet) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("btn_export_excel_bottom")
+                    ) {
+                        Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Export to Excel (.csv)", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
     }
+
+    // DIALOG: Edit Specific Bay Row
+    editingRowIndex?.let { index ->
+        val row = bayRows.getOrNull(index)
+        if (row != null) {
+            EditBayDialog(
+                bayRow = row,
+                onDismiss = { editingRowIndex = null },
+                onSave = { updatedRow ->
+                    bayRows[index] = updatedRow
+                    editingRowIndex = null
+                },
+                onDelete = {
+                    bayRows.removeAt(index)
+                    editingRowIndex = null
+                }
+            )
+        }
+    }
+
+    // DIALOG: Edit Metadata (Farm, Phase, GH No, WK No, Date)
+    if (showEditMetaDialog) {
+        EditMetaDialog(
+            currentFarm = farmName,
+            currentPhase = phase,
+            currentGh = ghNo,
+            currentWk = wkNo,
+            currentDate = sheetDate,
+            onDismiss = { showEditMetaDialog = false },
+            onSave = { f, p, gh, wk, d ->
+                farmName = f
+                phase = p
+                ghNo = gh
+                wkNo = wk
+                sheetDate = d
+                showEditMetaDialog = false
+            }
+        )
+    }
 }
 
 @Composable
-private fun ProtocolRowItem(label: String, value: String, highlight: Boolean = false) {
-    Column(modifier = Modifier.padding(vertical = 3.dp)) {
+private fun MetaTag(label: String, value: String) {
+    Column {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
-            color = if (highlight) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.primary
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (highlight) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (highlight) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
 @Composable
-private fun TableHeaderCell(text: String, width: androidx.compose.ui.unit.Dp) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = Color.White,
-        modifier = Modifier.width(width).padding(horizontal = 4.dp)
-    )
+private fun HeaderCell(text: String, width: androidx.compose.ui.unit.Dp, textColor: Color) {
+    Box(
+        modifier = Modifier
+            .width(width)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            textAlign = TextAlign.Center
+        )
+    }
 }
 
 @Composable
-private fun TableDataCell(
+private fun SubHeaderCell(text: String, width: androidx.compose.ui.unit.Dp) {
+    Box(
+        modifier = Modifier
+            .width(width)
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun TableCell(
     text: String,
     width: androidx.compose.ui.unit.Dp,
-    bold: Boolean = false,
-    color: Color = Color.Unspecified
+    isBold: Boolean = false,
+    isHighlighted: Boolean = false,
+    textColor: Color? = null
 ) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-        color = color,
-        modifier = Modifier.width(width).padding(horizontal = 4.dp)
-    )
+    Box(
+        modifier = Modifier
+            .width(width)
+            .padding(horizontal = 2.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        val color = when {
+            textColor != null -> textColor
+            isHighlighted -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.onSurface
+        }
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = if (isBold || isHighlighted) FontWeight.Bold else FontWeight.Normal,
+            color = color,
+            textAlign = TextAlign.Center
+        )
+    }
 }
 
-// =============================================================================
-// DIALOG: ADD INSPECTION ROW
-// =============================================================================
 @Composable
-private fun AddInspectionRowDialog(
-    nextStation: Int,
-    defaultCrop: String,
-    onDismiss: () -> Unit,
-    onAddRow: (ScoutingInspectionRow) -> Unit
+private fun TickCell(
+    isTicked: Boolean,
+    width: androidx.compose.ui.unit.Dp,
+    onToggle: () -> Unit
 ) {
-    var stationNum by remember { mutableIntStateOf(nextStation) }
-    var plotLocation by remember { mutableStateOf("Block A - Station $nextStation") }
-    var cropName by remember { mutableStateOf(defaultCrop) }
-    var threatName by remember { mutableStateOf("Fall Armyworm (FAW)") }
-    var sampledCount by remember { mutableStateOf("20") }
-    var infestedCount by remember { mutableStateOf("2") }
-    var severityRating by remember { mutableIntStateOf(2) }
-    var stageObserved by remember { mutableStateOf("Larvae in whorl") }
-    var actionStatus by remember { mutableStateOf("ACTION REQUIRED") }
-    var notesText by remember { mutableStateOf("") }
+    Box(
+        modifier = Modifier
+            .width(width)
+            .clickable { onToggle() }
+            .padding(vertical = 2.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isTicked) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Ticked",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+        } else {
+            Text(
+                text = "-",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditBayDialog(
+    bayRow: BayScoutingRow,
+    onDismiss: () -> Unit,
+    onSave: (BayScoutingRow) -> Unit,
+    onDelete: () -> Unit
+) {
+    var helLarvae by remember { mutableStateOf("${bayRow.helLarvae}") }
+    var depLarvae by remember { mutableStateOf("${bayRow.depLarvae}") }
+    var fcmLarvae by remember { mutableStateOf("${bayRow.fcmLarvae}") }
+    var helEggs by remember { mutableStateOf("${bayRow.helEggs}") }
+    var depEggs by remember { mutableStateOf("${bayRow.depEggs}") }
+    var otherEggs by remember { mutableStateOf("${bayRow.otherEggs}") }
+    var helMoth by remember { mutableStateOf(bayRow.helMoth) }
+    var depMoth by remember { mutableStateOf(bayRow.depMoth) }
+    var othersMoth by remember { mutableStateOf(bayRow.othersMoth) }
+    var mites by remember { mutableStateOf("${bayRow.mites}") }
+    var thrips by remember { mutableStateOf("${bayRow.thrips}") }
+    var aphids by remember { mutableStateOf("${bayRow.aphids}") }
+    var whiteflies by remember { mutableStateOf(bayRow.whiteflies) }
+    var downy by remember { mutableStateOf("${bayRow.downyMildew}") }
+    var powdery by remember { mutableStateOf("${bayRow.powderyMildew}") }
+    var botrytis by remember { mutableStateOf("${bayRow.botrytis}") }
+    var leafspot by remember { mutableStateOf("${bayRow.leafspot}") }
+    var weeds by remember { mutableStateOf("${bayRow.weeds}") }
+    var comments by remember { mutableStateOf(bayRow.comments) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log Scouting Station #$stationNum", fontWeight = FontWeight.Bold) },
+        title = {
+            Text("Edit Bay ${bayRow.bayNo} Data", fontWeight = FontWeight.Bold)
+        },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(
-                    value = plotLocation,
-                    onValueChange = { plotLocation = it },
-                    label = { Text("Plot / Field Location") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = threatName,
-                    onValueChange = { threatName = it },
-                    label = { Text("Target Pest or Disease") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = sampledCount,
-                        onValueChange = { sampledCount = it },
-                        label = { Text("Sampled") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = infestedCount,
-                        onValueChange = { infestedCount = it },
-                        label = { Text("Infested") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text("Action Status:", style = MaterialTheme.typography.labelSmall)
-                val statusOptions = listOf("ACTION REQUIRED", "MONITOR (3 DAYS)", "CLEAR")
-                Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    statusOptions.forEach { status ->
-                        FilterChip(
-                            selected = actionStatus == status,
-                            onClick = { actionStatus = status },
-                            label = { Text(status) },
-                            modifier = Modifier.padding(end = 6.dp)
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    Text("Caterpillars / Larvae", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = helLarvae,
+                            onValueChange = { helLarvae = it },
+                            label = { Text("Hel") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = depLarvae,
+                            onValueChange = { depLarvae = it },
+                            label = { Text("Dep") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = fcmLarvae,
+                            onValueChange = { fcmLarvae = it },
+                            label = { Text("Fcm") },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                item {
+                    Text("Eggs", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = helEggs,
+                            onValueChange = { helEggs = it },
+                            label = { Text("Hel") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = depEggs,
+                            onValueChange = { depEggs = it },
+                            label = { Text("Dep") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = otherEggs,
+                            onValueChange = { otherEggs = it },
+                            label = { Text("Other") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = stageObserved,
-                    onValueChange = { stageObserved = it },
-                    label = { Text("Pest/Disease Lifecycle Stage") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                item {
+                    Text("Moth / Pupa (Tick if noted)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = helMoth, onCheckedChange = { helMoth = it })
+                            Text("Hel", fontSize = 12.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = depMoth, onCheckedChange = { depMoth = it })
+                            Text("Dep", fontSize = 12.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = othersMoth, onCheckedChange = { othersMoth = it })
+                            Text("Others", fontSize = 12.sp)
+                        }
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                item {
+                    Text("Other Pests", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = mites,
+                            onValueChange = { mites = it },
+                            label = { Text("Mites") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = thrips,
+                            onValueChange = { thrips = it },
+                            label = { Text("Thrips") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = aphids,
+                            onValueChange = { aphids = it },
+                            label = { Text("Aphids") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        Checkbox(checked = whiteflies, onCheckedChange = { whiteflies = it })
+                        Text("Whiteflies Present", fontSize = 13.sp)
+                    }
+                }
 
-                OutlinedTextField(
-                    value = notesText,
-                    onValueChange = { notesText = it },
-                    label = { Text("Field Notes / Chemical Action") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                item {
+                    Text("Diseases", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = downy,
+                            onValueChange = { downy = it },
+                            label = { Text("Downy") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = powdery,
+                            onValueChange = { powdery = it },
+                            label = { Text("Powdery") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = botrytis,
+                            onValueChange = { botrytis = it },
+                            label = { Text("Botrytis") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = leafspot,
+                            onValueChange = { leafspot = it },
+                            label = { Text("Leafspot") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                item {
+                    Text("Weeds", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    OutlinedTextField(
+                        value = weeds,
+                        onValueChange = { weeds = it },
+                        label = { Text("Weed Count") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                item {
+                    Text("Comments / Action Required", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    OutlinedTextField(
+                        value = comments,
+                        onValueChange = { comments = it },
+                        label = { Text("Action or scouting note") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val sCount = sampledCount.toIntOrNull() ?: 20
-                    val iCount = infestedCount.toIntOrNull() ?: 0
-                    val incidence = if (sCount > 0) (iCount.toDouble() / sCount) * 100.0 else 0.0
-
-                    val newRow = ScoutingInspectionRow(
-                        stationNumber = stationNum,
-                        plotLocation = plotLocation,
-                        cropName = cropName,
-                        threatName = threatName,
-                        plantsSampled = sCount,
-                        plantsInfested = iCount,
-                        incidencePercent = incidence,
-                        severityRating = severityRating,
-                        stageObserved = stageObserved,
-                        actionStatus = actionStatus,
-                        notes = notesText
+                    val updated = bayRow.copy(
+                        helLarvae = helLarvae.toIntOrNull() ?: 0,
+                        depLarvae = depLarvae.toIntOrNull() ?: 0,
+                        fcmLarvae = fcmLarvae.toIntOrNull() ?: 0,
+                        helEggs = helEggs.toIntOrNull() ?: 0,
+                        depEggs = depEggs.toIntOrNull() ?: 0,
+                        otherEggs = otherEggs.toIntOrNull() ?: 0,
+                        helMoth = helMoth,
+                        depMoth = depMoth,
+                        othersMoth = othersMoth,
+                        mites = mites.toIntOrNull() ?: 0,
+                        thrips = thrips.toIntOrNull() ?: 0,
+                        aphids = aphids.toIntOrNull() ?: 0,
+                        whiteflies = whiteflies,
+                        downyMildew = downy.toIntOrNull() ?: 0,
+                        powderyMildew = powdery.toIntOrNull() ?: 0,
+                        botrytis = botrytis.toIntOrNull() ?: 0,
+                        leafspot = leafspot.toIntOrNull() ?: 0,
+                        weeds = weeds.toIntOrNull() ?: 0,
+                        comments = comments
                     )
-                    onAddRow(newRow)
+                    onSave(updated)
                 }
             ) {
-                Text("Add to Table")
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDelete) {
+                    Text("Delete Bay", color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun EditMetaDialog(
+    currentFarm: String,
+    currentPhase: String,
+    currentGh: String,
+    currentWk: String,
+    currentDate: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String, String) -> Unit
+) {
+    var farm by remember { mutableStateOf(currentFarm) }
+    var phase by remember { mutableStateOf(currentPhase) }
+    var gh by remember { mutableStateOf(currentGh) }
+    var wk by remember { mutableStateOf(currentWk) }
+    var date by remember { mutableStateOf(currentDate) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Scouting Sheet Info", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = farm,
+                    onValueChange = { farm = it },
+                    label = { Text("Farm Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = phase,
+                        onValueChange = { phase = it },
+                        label = { Text("Phase") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = gh,
+                        onValueChange = { gh = it },
+                        label = { Text("GH No.") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = wk,
+                        onValueChange = { wk = it },
+                        label = { Text("WK No.") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = date,
+                        onValueChange = { date = it },
+                        label = { Text("Date (DD/MM/YYYY)") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(farm, phase, gh, wk, date) }) {
+                Text("Save Info")
             }
         },
         dismissButton = {
@@ -844,153 +984,38 @@ private fun AddInspectionRowDialog(
     )
 }
 
-// =============================================================================
-// DEVELOPER & CROP SCIENTIST PROFILE DIALOG
-// =============================================================================
-@Composable
-fun AgronomistProfileDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = Color.White)
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(text = DeveloperInfo.NAME, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(text = DeveloperInfo.TITLE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Card(
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = DeveloperInfo.QUALIFICATION,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = DeveloperInfo.BIO,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Contact Actions
-                Button(
-                    onClick = {
-                        val callIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${DeveloperInfo.PHONE}"))
-                        context.startActivity(callIntent)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(imageVector = Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Call ${DeveloperInfo.PHONE}")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${DeveloperInfo.EMAIL}")).apply {
-                            putExtra(Intent.EXTRA_SUBJECT, "Agronomy & Scouting Consultation - CropShield")
-                        }
-                        context.startActivity(emailIntent)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(imageVector = Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Email ${DeveloperInfo.EMAIL}")
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
-}
-
-// =============================================================================
-// EXPORT & SHARING HELPERS
-// =============================================================================
-private fun shareScoutingTable(context: Context, report: ScoutingSheetReport) {
+/**
+ * Exports the clean tabular Scouting Sheet as an Excel-compatible CSV file.
+ * Avoids footnotes and extraneous headings, complying directly with user specification:
+ * "avoid the footnotes and the headings just write Scouting Sheet in Table format which can be exported into excel sheet for analysis."
+ */
+private fun exportScoutingSheetToExcel(context: Context, sheet: CommercialScoutingSheet) {
     try {
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "Field Scouting Table - ${report.farmName} (${report.cropName})")
-            putExtra(Intent.EXTRA_TEXT, report.toFormattedShareText())
-        }
-        context.startActivity(Intent.createChooser(shareIntent, "Share Scouting Sheet Table via"))
-    } catch (e: Exception) {
-        Toast.makeText(context, "Failed to share: ${e.message}", Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun exportCsvFile(context: Context, report: ScoutingSheetReport) {
-    try {
-        val fileName = "scouting_sheet_${report.cropName.lowercase().replace(" ", "_")}_${System.currentTimeMillis()}.csv"
+        val fileName = "Scouting_Sheet_${sheet.farmName.replace(" ", "_")}_${sheet.ghNo.replace(" ", "_")}_${System.currentTimeMillis()}.csv"
         val file = File(context.cacheDir, fileName)
         FileOutputStream(file).use { out ->
-            out.write(report.toCsv().toByteArray())
+            out.write(sheet.toExcelCsv().toByteArray())
         }
 
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/csv"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Scouting Sheet CSV - ${report.farmName}")
+            putExtra(Intent.EXTRA_SUBJECT, "Scouting Sheet - ${sheet.farmName} (${sheet.ghNo})")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(sendIntent, "Download / Share Scouting CSV Table"))
+        context.startActivity(Intent.createChooser(sendIntent, "Open / Export Scouting Sheet for Excel"))
     } catch (e: Exception) {
-        // Fallback: share raw CSV as text
-        val textIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, report.toCsv())
+        // Fallback: share raw CSV as plain text
+        try {
+            val textIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, sheet.toExcelCsv())
+                putExtra(Intent.EXTRA_SUBJECT, "Scouting Sheet - ${sheet.farmName}")
+            }
+            context.startActivity(Intent.createChooser(textIntent, "Share Scouting Sheet Table"))
+        } catch (ex: Exception) {
+            Toast.makeText(context, "Export error: ${ex.message}", Toast.LENGTH_SHORT).show()
         }
-        context.startActivity(Intent.createChooser(textIntent, "Export Scouting Table"))
-    }
-}
-
-private fun printHtmlReport(context: Context, report: ScoutingSheetReport) {
-    try {
-        val htmlFile = File(context.cacheDir, "scouting_report_${System.currentTimeMillis()}.html")
-        FileOutputStream(htmlFile).use { out ->
-            out.write(report.toPrintableHtml().toByteArray())
-        }
-
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", htmlFile)
-        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "text/html")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(Intent.createChooser(viewIntent, "Open Printable Scouting Sheet Table"))
-    } catch (e: Exception) {
-        shareScoutingTable(context, report)
     }
 }
