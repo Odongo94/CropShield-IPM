@@ -37,6 +37,7 @@ data class AgroEcologicalZone(
  * Offline map layer visual style.
  */
 enum class MapLayerType(val title: String, val description: String) {
+    GOOGLE_SATELLITE("Google Satellite", "Real satellite imagery of your farm & fields"),
     SATELLITE_HYBRID("Satellite Hybrid", "Satellite earth texture & parcel survey"),
     AGRO_ECOLOGICAL("Agro-Zones", "Soil capability & rainfall zones"),
     TOPOGRAPHIC("Terrain Topo", "Elevation shading & contours"),

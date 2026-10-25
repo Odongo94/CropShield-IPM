@@ -133,13 +133,18 @@ fun FieldMapScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val tileProvider = remember { OfflineTileProvider() }
+    var tileRevision by remember { mutableIntStateOf(0) }
+    val tileProvider = remember {
+        OfflineTileProvider(context.cacheDir).apply {
+            onTileLoaded = { tileRevision++ }
+        }
+    }
 
-    // Map Viewport state (Default: Nakuru Agricultural Hub)
+    // Map Viewport state (Default: Nakuru Agricultural Basin / Kenya Rift Valley)
     var centerLat by remember { mutableDoubleStateOf(-0.3031) }
     var centerLng by remember { mutableDoubleStateOf(36.0800) }
-    var zoomLevel by remember { mutableIntStateOf(15) }
-    var layerType by remember { mutableStateOf(MapLayerType.AGRO_ECOLOGICAL) }
+    var zoomLevel by remember { mutableIntStateOf(16) }
+    var layerType by remember { mutableStateOf(MapLayerType.GOOGLE_SATELLITE) }
 
     // Boundary vertices
     val boundaryPoints = remember { mutableStateListOf<GeoPoint>() }
@@ -476,6 +481,7 @@ fun FieldMapScreen(
                 boundaryPoints = boundaryPoints.toList(),
                 selectedPointIndex = selectedPointIndex,
                 currentGpsLocation = currentGpsLocation,
+                tileRevision = tileRevision,
                 onPanDelta = { dx: Float, dy: Float ->
                     val (wX, wY) = tileProvider.latLngToWorldPixel(centerLat, centerLng, zoomLevel)
                     val newWorldX = wX - dx
@@ -500,13 +506,51 @@ fun FieldMapScreen(
                 }
             )
 
-            // 2. TOP METRICS HUD CARD
+            // 2. TOP METRICS & SATELLITE CONTROLS HUD CARD
             Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .padding(12.dp)
             ) {
+                // Quick Map Layer Mode Selector
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterChip(
+                        selected = layerType == MapLayerType.GOOGLE_SATELLITE,
+                        onClick = { layerType = MapLayerType.GOOGLE_SATELLITE },
+                        label = { Text("🛰️ Google Satellite", style = MaterialTheme.typography.labelSmall) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        modifier = Modifier.testTag("chip_layer_google_satellite")
+                    )
+                    FilterChip(
+                        selected = layerType == MapLayerType.AGRO_ECOLOGICAL,
+                        onClick = { layerType = MapLayerType.AGRO_ECOLOGICAL },
+                        label = { Text("🌱 Agro-Zones", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.testTag("chip_layer_agro")
+                    )
+                    FilterChip(
+                        selected = layerType == MapLayerType.TOPOGRAPHIC,
+                        onClick = { layerType = MapLayerType.TOPOGRAPHIC },
+                        label = { Text("⛰️ Topo Shading", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.testTag("chip_layer_topo")
+                    )
+                    FilterChip(
+                        selected = layerType == MapLayerType.CADASTRAL,
+                        onClick = { layerType = MapLayerType.CADASTRAL },
+                        label = { Text("📐 Cadastre Grid", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.testTag("chip_layer_cadastral")
+                    )
+                }
+
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(

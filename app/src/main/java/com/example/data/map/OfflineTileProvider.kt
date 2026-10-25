@@ -7,12 +7,22 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.BitmapFactory
 import androidx.collection.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.example.model.AgroEcologicalZone
 import com.example.model.GeoPoint
 import com.example.model.MapLayerType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.cos
@@ -24,20 +34,44 @@ import kotlin.math.sin
 import kotlin.math.tan
 
 /**
- * Lightweight, zero-connectivity offline tile provider.
- * Renders Web Mercator agricultural raster tiles mathematically on-device without any internet connection.
+ * Lightweight, zero-connectivity offline tile provider with live Google Satellite imagery streaming.
+ * Loads actual high-resolution Google Satellite tiles when online with disk and memory caching,
+ * and seamlessly renders procedural Web Mercator agricultural raster tiles on-device when offline.
  */
-class OfflineTileProvider {
+class OfflineTileProvider(
+    private val diskCacheDir: File? = null
+) {
 
     companion object {
         const val TILE_SIZE = 256
         const val MIN_ZOOM = 10
-        const val MAX_ZOOM = 18
-        const val DEFAULT_ZOOM = 15
+        const val MAX_ZOOM = 19
+        const val DEFAULT_ZOOM = 16
     }
 
-    // High performance memory cache for rendered offline tiles
-    private val tileMemoryCache = LruCache<String, ImageBitmap>(128)
+    // High performance memory cache for rendered offline and downloaded satellite tiles
+    private val tileMemoryCache = LruCache<String, ImageBitmap>(256)
+
+    // Tracks in-flight tile downloads to prevent duplicate network calls
+    private val inFlightRequests = ConcurrentHashMap<String, Boolean>()
+
+    // Callback invoked when a background satellite tile arrives so UI can redraw
+    var onTileLoaded: (() -> Unit)? = null
+
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
+
+    private val satelliteCacheFolder by lazy {
+        diskCacheDir?.let {
+            val folder = File(it, "satellite_tiles")
+            if (!folder.exists()) folder.mkdirs()
+            folder
+        }
+    }
 
     /**
      * Converts a geographic latitude/longitude to global world pixel coordinates at the given zoom level.
@@ -62,7 +96,8 @@ class OfflineTileProvider {
     }
 
     /**
-     * Retrieves or procedurally generates an offline tile for the given Web Mercator (x, y, zoom) coordinates.
+     * Retrieves or procedurally generates a tile for the given Web Mercator (x, y, zoom) coordinates.
+     * When layerType is GOOGLE_SATELLITE, fetches genuine Google Satellite tiles.
      */
     fun getTile(tileX: Int, tileY: Int, zoom: Int, layerType: MapLayerType): ImageBitmap {
         val cacheKey = "${layerType.name}_${zoom}_${tileX}_$tileY"
@@ -71,9 +106,95 @@ class OfflineTileProvider {
             return cached
         }
 
-        val renderedTile = renderProceduralTile(tileX, tileY, zoom, layerType)
+        // Check persistent disk cache for Satellite tiles
+        if (layerType == MapLayerType.GOOGLE_SATELLITE && satelliteCacheFolder != null) {
+            val diskFile = File(satelliteCacheFolder, "sat_${zoom}_${tileX}_${tileY}.jpg")
+            if (diskFile.exists() && diskFile.length() > 0) {
+                try {
+                    val bitmap = BitmapFactory.decodeFile(diskFile.absolutePath)
+                    if (bitmap != null) {
+                        val img = bitmap.asImageBitmap()
+                        tileMemoryCache.put(cacheKey, img)
+                        return img
+                    }
+                } catch (_: Throwable) {}
+            }
+
+            // Asynchronously fetch live Google satellite tile in background
+            fetchOnlineSatelliteTile(tileX, tileY, zoom, cacheKey, diskFile)
+        }
+
+        // Immediate procedural render fallback (realistic satellite earth texture / soils)
+        val renderedTile = renderProceduralTile(
+            tileX,
+            tileY,
+            zoom,
+            if (layerType == MapLayerType.GOOGLE_SATELLITE) MapLayerType.SATELLITE_HYBRID else layerType
+        )
         tileMemoryCache.put(cacheKey, renderedTile)
         return renderedTile
+    }
+
+    private fun fetchOnlineSatelliteTile(
+        tileX: Int,
+        tileY: Int,
+        zoom: Int,
+        cacheKey: String,
+        targetFile: File
+    ) {
+        if (inFlightRequests.putIfAbsent(cacheKey, true) != null) return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Primary: Google Satellite Tile (hybrid with road/place overlays)
+                // Alternate: Google Satellite photo or ESRI World Imagery
+                val serverNum = ((tileX + tileY) % 4).coerceIn(0, 3)
+                val primaryUrl = "https://mt$serverNum.google.com/vt/lyrs=y&x=$tileX&y=$tileY&z=$zoom"
+                val fallbackUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/$zoom/$tileY/$tileX"
+
+                var downloadedBytes = downloadTileBytes(primaryUrl)
+                if (downloadedBytes == null) {
+                    downloadedBytes = downloadTileBytes(fallbackUrl)
+                }
+
+                if (downloadedBytes != null && downloadedBytes.isNotEmpty()) {
+                    try {
+                        targetFile.writeBytes(downloadedBytes)
+                    } catch (_: Exception) {}
+
+                    val decodedBitmap = BitmapFactory.decodeByteArray(downloadedBytes, 0, downloadedBytes.size)
+                    if (decodedBitmap != null) {
+                        val imageBitmap = decodedBitmap.asImageBitmap()
+                        tileMemoryCache.put(cacheKey, imageBitmap)
+                        withContext(Dispatchers.Main) {
+                            onTileLoaded?.invoke()
+                        }
+                    }
+                }
+            } catch (_: Throwable) {
+                // Graceful offline fallback remains active
+            } finally {
+                inFlightRequests.remove(cacheKey)
+            }
+        }
+    }
+
+    private fun downloadTileBytes(url: String): ByteArray? {
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+                .header("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
+                .build()
+            val response = httpClient.newCall(request).execute()
+            if (response.isSuccessful) {
+                response.body?.bytes()
+            } else {
+                null
+            }
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     /**
@@ -110,6 +231,7 @@ class OfflineTileProvider {
                 (centerLng in 36.05..36.12 && centerLat in -0.4..-0.3) // Lake Nakuru
 
         when (layerType) {
+            MapLayerType.GOOGLE_SATELLITE,
             MapLayerType.SATELLITE_HYBRID -> {
                 drawSatelliteHybridTile(canvas, zone, isWaterBody, tileX, tileY, zoom)
             }

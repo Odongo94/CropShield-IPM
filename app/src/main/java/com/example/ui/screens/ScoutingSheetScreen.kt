@@ -88,8 +88,8 @@ fun ScoutingSheetScreen(
 ) {
     val context = LocalContext.current
 
-    // Metadata matching the paper scouting form
-    var farmName by remember { mutableStateOf("Shalimar Fresh Limited") }
+    // Metadata matching the paper scouting form (general name, fully customizable by scout)
+    var farmName by remember { mutableStateOf("Commercial Farm & Greenhouse") }
     var phase by remember { mutableStateOf("Phase 1") }
     var ghNo by remember { mutableStateOf("GH 01") }
     var wkNo by remember { mutableStateOf("WK 43") }
@@ -218,12 +218,24 @@ fun ScoutingSheetScreen(
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    MetaTag(label = "FARM", value = farmName)
-                    MetaTag(label = "PHASE", value = phase)
-                    MetaTag(label = "GH No.", value = ghNo)
-                    MetaTag(label = "WK No.", value = wkNo)
-                    MetaTag(label = "DATE", value = sheetDate)
-                    MetaTag(label = "TOTAL BAYS", value = "${bayRows.size}")
+                    Surface(
+                        onClick = { showEditMetaDialog = true },
+                        color = Color.Transparent,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.padding(4.dp)
+                        ) {
+                            MetaTag(label = "FARM (Tap to Change)", value = farmName)
+                            MetaTag(label = "PHASE", value = phase)
+                            MetaTag(label = "GH No.", value = ghNo)
+                            MetaTag(label = "WK No.", value = wkNo)
+                            MetaTag(label = "DATE", value = sheetDate)
+                            MetaTag(label = "TOTAL BAYS", value = "${bayRows.size}")
+                        }
+                    }
 
                     // Export to Excel button right on the bar
                     Button(

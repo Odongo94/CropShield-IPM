@@ -361,27 +361,39 @@ private fun KnapsackFertilizerCalculatorContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 3. KNAPSACK SPRAYER TANK SELECTION
+        // 3. SPRAY TANK CAPACITY SELECTION (Knapsack, Motorized, Tractor Boom 500L - 2000L)
         Text(
-            text = "3. Knapsack Sprayer Tank Size:",
+            text = "3. Spray Tank Capacity (Knapsacks, Motorized & 500L - 2000L Booms):",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(6.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(16.0, 20.0, 15.0).forEach { liters ->
-                val isSelected = selectedKnapsackLiters == liters
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(16.0, 20.0, 100.0, 200.0, 500.0, 800.0, 1000.0, 1500.0, 2000.0).forEach { liters ->
+                val isSelected = kotlin.math.abs(selectedKnapsackLiters - liters) < 0.1
                 FilterChip(
                     selected = isSelected,
                     onClick = { onKnapsackLitersSelected(liters) },
                     label = {
                         Text(
                             text = when (liters) {
-                                16.0 -> "16L Standard (Matabi/Solo)"
-                                20.0 -> "20L Commercial Tank"
-                                else -> "15L Lightweight (CP15)"
+                                16.0 -> "16L Knapsack"
+                                20.0 -> "20L Knapsack"
+                                100.0 -> "100L Power Tank"
+                                200.0 -> "200L Drum Sprayer"
+                                500.0 -> "500L Tractor Boom"
+                                800.0 -> "800L Boom Sprayer"
+                                1000.0 -> "1,000L Central Tank"
+                                1500.0 -> "1,500L Farm Tanker"
+                                2000.0 -> "2,000L Commercial Tank"
+                                else -> "${liters.toInt()}L"
                             }
                         )
                     },
@@ -392,7 +404,7 @@ private fun KnapsackFertilizerCalculatorContent(
                         selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
                     ),
-                    modifier = Modifier.testTag("knapsack_size_${liters.toInt()}l")
+                    modifier = Modifier.testTag("tank_size_${liters.toInt()}l")
                 )
             }
         }

@@ -53,7 +53,8 @@ fun FieldMapCanvas(
     onZoomChange: (deltaZoom: Float) -> Unit,
     onMapTapped: (GeoPoint) -> Unit,
     onPointSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tileRevision: Int = 0
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -131,6 +132,7 @@ fun FieldMapCanvas(
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val _rev = tileRevision
             val canvasWidth = size.width
             val canvasHeight = size.height
 

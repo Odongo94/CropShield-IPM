@@ -621,7 +621,9 @@ object AgronomyCatalog {
         val totalP = (totalBasalKg * (basal.pPercent / 100.0)) + (totalFoliarKg * (foliar.pPercent / 100.0))
         val totalK = (totalBasalKg * (basal.kPercent / 100.0)) + (totalTopdressKg * (topdress.kPercent / 100.0)) + (totalFoliarKg * (foliar.kPercent / 100.0))
 
-        val knapsackCalibration = "For ${String.format("%.2f", farmSizeHectares)} ha of $cropName: Mix ${String.format("%.0f", foliarDosePerTankGrams)}g of ${foliar.name} into each ${knapsackTankCapacityLiters.toInt()}L knapsack tank. Spray evenly across foliage using hollow cone nozzle at 2.0-2.5 bar pressure. Total sprayer refills required: ${String.format("%.1f", totalKnapsackTanks)} tanks (${String.format("%.0f", totalWaterLitersNeeded)} Liters total spray volume)."
+        val doseText = if (foliarDosePerTankGrams >= 1000.0) String.format("%.2f kg", foliarDosePerTankGrams / 1000.0) else String.format("%.0f g", foliarDosePerTankGrams)
+        val tankTypeText = if (knapsackTankCapacityLiters >= 500.0) "tractor boom / central tank" else if (knapsackTankCapacityLiters >= 100.0) "motorized power sprayer" else "knapsack tank"
+        val knapsackCalibration = "For ${String.format("%.2f", farmSizeHectares)} ha of $cropName: Mix $doseText of ${foliar.name} into each ${knapsackTankCapacityLiters.toInt()}L $tankTypeText. Spray evenly across foliage using calibrated nozzles at 2.0-2.5 bar pressure. Total sprayer tank refills required: ${String.format("%.1f", totalKnapsackTanks)} tanks (${String.format("%.0f", totalWaterLitersNeeded)} Liters total spray volume)."
 
         return KnapsackFertilizerResult(
             farmSizeHectares = farmSizeHectares,

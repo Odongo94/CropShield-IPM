@@ -977,7 +977,7 @@ object CropProductionCatalog {
                 commercialValueAddition = "Cold-pressed extra virgin avocado oil for culinary and cosmetics, frozen guacamole pulp, and avocado facial oil."
             )
         )
-    )
+    ) + FloricultureCropProfiles.list + CerealCropProfiles.list + PerennialCropProfiles.list
 
     /**
      * Search crop library by query text (matches crop name, botanical name, category, or practices).

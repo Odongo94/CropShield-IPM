@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -16,34 +20,44 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Coronavirus
+import androidx.compose.material.icons.filled.Grass
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,441 +73,747 @@ import com.example.data.ThreatCatalog
 import com.example.model.CropThreat
 import com.example.model.ThreatType
 
-data class SymptomOption(
+/**
+ * Factual diagnostic symptom key pairing physical field signs directly to verified threats.
+ */
+data class FactualDiagnosticKey(
     val id: String,
-    val title: String,
-    val description: String,
-    val associatedThreatIds: List<String>
+    val plantOrgan: String, // Foliage, Stem/Stalk, Flower/Bud, Fruit/Pod, Whole Plant, Soil/Root
+    val primarySymptom: String,
+    val detailedSignDescription: String,
+    val targetThreatId: String,
+    val targetCrops: List<String>
 )
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DiagnoseScreen(
     onThreatClick: (CropThreat) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedCrop by remember { mutableStateOf("Tomato") }
-    var selectedPart by remember { mutableStateOf("Leaves") }
-
-    val crops = listOf("Tomato", "Potato", "Maize", "Beans", "French Beans", "Cabbage / Kale", "Cut Roses", "Cotton", "Sorghum", "All Field Soils")
-    val plantParts = listOf("Leaves", "Stem", "Fruit", "Whorl", "Roots", "Soil Surface & Profile")
-
-    val availableSymptoms = remember {
-        listOf(
-            SymptomOption(
-                id = "water_soaked_white_halo",
-                title = "Water-soaked lesions with white fuzzy mold underside",
-                description = "Dark irregular spots turning greasy brown, white cottony spores in morning dew.",
-                associatedThreatIds = listOf("late_blight")
-            ),
-            SymptomOption(
-                id = "frass_ragged_whorl",
-                title = "Ragged chewed leaves & moist sawdust-like frass in whorl",
-                description = "Window-paning, gunshot holes, inverted Y mark on caterpillar head.",
-                associatedThreatIds = listOf("fall_armyworm")
-            ),
-            SymptomOption(
-                id = "blotch_transparent_mines",
-                title = "Transparent blister blotch mines with dark frass inside",
-                description = "Silvery papery patches on foliage, pinhead fruit entry punctures.",
-                associatedThreatIds = listOf("tuta_absoluta")
-            ),
-            SymptomOption(
-                id = "caterpillar_fruit_entry_holes",
-                title = "Circular boreholes in fruit/pods with frass contamination",
-                description = "Caterpillars boring into tomato fruits, legume pods, cotton bolls, causing secondary rot.",
-                associatedThreatIds = listOf("african_bollworm")
-            ),
-            SymptomOption(
-                id = "stem_tunnels_dead_heart",
-                title = "Shot-hole perforations, stalk tunneling & 'dead heart' wilting",
-                description = "Internal stems bored with frass sawdust, central whorl wilting in young cereals.",
-                associatedThreatIds = listOf("maize_stem_borer")
-            ),
-            SymptomOption(
-                id = "pink_purple_parasite_chlorosis",
-                title = "Pink-purple spiked parasitic plants around cereal root crowns",
-                description = "Host cereal shows severe drought-like scorching, interveinal chlorosis, low N/P soil sign.",
-                associatedThreatIds = listOf("weed_striga")
-            ),
-            SymptomOption(
-                id = "triangular_stem_rhizome_tubers",
-                title = "Triangular erect stems, purple spikelets & underground tuber chain",
-                description = "Aggressive sedge forming persistent tuber chains, indicator of plowpan soil compaction.",
-                associatedThreatIds = listOf("weed_purple_nutsedge")
-            ),
-            SymptomOption(
-                id = "red_volcanic_phosphorus_fixation",
-                title = "Deep dusky red volcanic soil with phosphorus deficiency signs",
-                description = "Acidic red clay loam profile, high P fixation, purpling of lower crop foliage.",
-                associatedThreatIds = listOf("soil_humic_nitisol")
-            ),
-            SymptomOption(
-                id = "black_cotton_deep_cracking_waterlog",
-                title = "Dark cracking clay (Black Cotton) with seasonal waterlogging",
-                description = "Deep summer dessication cracks, extreme plasticity, stunted root aeration in rainy season.",
-                associatedThreatIds = listOf("soil_pellic_vertisol")
-            ),
-            SymptomOption(
-                id = "concentric_bullseye_rings",
-                title = "Concentric 'bullseye' target rings with yellow halo",
-                description = "Starts on bottom older foliage, leaves dry up like paper and drop.",
-                associatedThreatIds = listOf("early_blight")
-            ),
-            SymptomOption(
-                id = "midday_green_wilt",
-                title = "Rapid wilting during daytime heat while leaves stay green",
-                description = "Plant wilts suddenly, recovers at night early on, milky threads on stem test.",
-                associatedThreatIds = listOf("bacterial_wilt")
-            ),
-            SymptomOption(
-                id = "curled_sticky_honeydew",
-                title = "Curled crinkled leaves with sticky shiny honeydew & ants",
-                description = "Dense clusters of soft tiny green/black insects on shoot tips.",
-                associatedThreatIds = listOf("aphids")
-            )
-        )
-    }
-
-    val selectedSymptoms = remember { mutableStateListOf<String>() }
-
-    // Diagnostic calculation
-    val diagnosticMatches = remember(selectedCrop, selectedPart, selectedSymptoms.toList()) {
-        ThreatCatalog.allThreats.map { threat ->
-            var score = 0
-
-            // Crop match bonus
-            if (threat.targetCrops.any { it.equals(selectedCrop, ignoreCase = true) }) {
-                score += 30
-            }
-
-            // Part match bonus
-            if (threat.affectedParts.any { it.equals(selectedPart, ignoreCase = true) }) {
-                score += 20
-            }
-
-            // Symptom match bonus
-            selectedSymptoms.forEach { symptomId ->
-                val symptom = availableSymptoms.find { it.id == symptomId }
-                if (symptom?.associatedThreatIds?.contains(threat.id) == true) {
-                    score += 50
-                }
-            }
-
-            val confidencePercent = (score).coerceIn(0, 100)
-            threat to confidencePercent
-        }
-            .filter { it.second >= 30 }
-            .sortedByDescending { it.second }
-    }
+    var activeSubTab by remember { mutableIntStateOf(0) } // 0: Factual Diagnostic Key, 1: Searchable A-Z Compendium
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-            .padding(bottom = 24.dp)
+            .testTag("diagnose_screen")
     ) {
-        // Top Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Tab selector
+        PrimaryTabRow(
+            selectedTabIndex = activeSubTab,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            contentColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth().testTag("diagnose_tabs")
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Offline Field Diagnostic Assistant",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Match field damage signs to identify pests or pathogens instantly",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (selectedSymptoms.isNotEmpty()) {
-                IconButton(
-                    onClick = { selectedSymptoms.clear() },
-                    modifier = Modifier.testTag("reset_symptoms_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Reset symptoms",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            Tab(
+                selected = activeSubTab == 0,
+                onClick = { activeSubTab = 0 },
+                icon = { Icon(Icons.Default.Verified, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                text = { Text("Factual Symptom Key", fontWeight = if (activeSubTab == 0) FontWeight.Bold else FontWeight.Medium) }
+            )
+            Tab(
+                selected = activeSubTab == 1,
+                onClick = { activeSubTab = 1 },
+                icon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                text = { Text("A-Z Pest & Disease Library", fontWeight = if (activeSubTab == 1) FontWeight.Bold else FontWeight.Medium) }
+            )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Step 1: Crop Selection
-        Text(
-            text = "1. Select Affected Crop:",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            crops.forEach { crop ->
-                val isSelected = selectedCrop == crop
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .clickable { selectedCrop = crop }
-                        .testTag("crop_pill_$crop")
-                ) {
-                    Text(
-                        text = crop,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                    )
-                }
-            }
+        if (activeSubTab == 0) {
+            FactualSymptomKeyView(onThreatClick = onThreatClick)
+        } else {
+            FactualCompendiumSearchView(onThreatClick = onThreatClick)
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(14.dp))
+/**
+ * TAB 1: Step-by-Step Factual Symptom Diagnostic Key
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FactualSymptomKeyView(
+    onThreatClick: (CropThreat) -> Unit
+) {
+    val plantOrgans = listOf("Foliage & Leaves", "Stalks & Stems", "Flowers & Buds", "Fruits & Pods", "Whole Plant & Crown", "Soil & Roots")
+    var selectedOrgan by remember { mutableStateOf("Foliage & Leaves") }
+    var selectedCropFilter by remember { mutableStateOf("All Crops") }
+    var selectedKeyId by remember { mutableStateOf<String?>(null) }
 
-        // Step 2: Plant Part Selection
-        Text(
-            text = "2. Select Plant Part Showing Symptoms:",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+    val cropsList = listOf("All Crops", "Tomato & Potato", "Maize & Cereals", "Beans & Legumes", "Cabbage & Brassicas", "Roses & Carnations", "Soil & General")
+
+    // Master Factual Botanical & Entomological Keys
+    val factualKeys = remember {
+        listOf(
+            // FOLIAGE
+            FactualDiagnosticKey(
+                id = "key_spider_mite_stippling",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Fine silken webbing + chlorotic yellow stippling",
+                detailedSignDescription = "Pinhead yellow specks on upper leaf surface, fine silken webbing under leaves and shoot tips, foliar bronzing and paper-dry feel.",
+                targetThreatId = "spider_mites",
+                targetCrops = listOf("Roses & Carnations", "Tomato & Potato", "Beans & Legumes", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_late_blight_lesions",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Water-soaked greasy lesions + white mold underside",
+                detailedSignDescription = "Irregular pale green to brown water-soaked lesions expanding rapidly from leaf margins; white cottony mildew ring on underside in morning dew.",
+                targetThreatId = "late_blight",
+                targetCrops = listOf("Tomato & Potato", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_tuta_blotch_mines",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Transparent blister blotch mines with dark frass pellets",
+                detailedSignDescription = "Irregular transparent/silvery mines across leaf lamina containing black larval frass; foliage desiccates without yellow halos.",
+                targetThreatId = "tuta_absoluta",
+                targetCrops = listOf("Tomato & Potato", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_faw_windowpaning",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Ragged chewed holes + moist sawdust frass in whorl",
+                detailedSignDescription = "Early 'window-paning' where epidermis is scraped thin; large gunshot feeding perforations and heavy accumulations of moist frass in whorl.",
+                targetThreatId = "fall_armyworm",
+                targetCrops = listOf("Maize & Cereals", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_dbm_skeletonizing",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Window-pane leaf feeding + wriggling green larvae on silk",
+                detailedSignDescription = "Lower epidermis eaten away leaving thin papery windows; larvae drop on fine silk threads when disturbed; cabbage heads pierced.",
+                targetThreatId = "diamondback_moth",
+                targetCrops = listOf("Cabbage & Brassicas", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_powdery_mildew_talcum",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "White talcum-powder fungal patches on upper leaf surface",
+                detailedSignDescription = "Circular white powdery colonies coalescing across leaves and flower buds; young leaves curl, blister, and distort.",
+                targetThreatId = "rose_powdery_mildew",
+                targetCrops = listOf("Roses & Carnations", "Tomato & Potato", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_rust_pustules_cinnamon",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Reddish-brown / cinnamon powdery pustules (uredinia)",
+                detailedSignDescription = "Small raised blisters rupturing lower epidermis releasing powdery rust-colored spores; encircled by distinct chlorotic yellow halos.",
+                targetThreatId = "bean_rust",
+                targetCrops = listOf("Beans & Legumes", "Maize & Cereals", "Roses & Carnations", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_downy_mildew_angular",
+                plantOrgan = "Foliage & Leaves",
+                primarySymptom = "Purplish-brown angular spots delimited by leaf veins",
+                detailedSignDescription = "Geometric angular purplish-red to brown lesions bounded strictly by veins; greyish-white downy sporulation underneath under high RH.",
+                targetThreatId = "rose_downy_mildew",
+                targetCrops = listOf("Roses & Carnations", "All Crops")
+            ),
+
+            // STEMS & STALKS
+            FactualDiagnosticKey(
+                id = "key_stem_borer_dead_heart",
+                plantOrgan = "Stalks & Stems",
+                primarySymptom = "Stem tunneling, sawdust frass pellets & 'dead heart' wilting",
+                detailedSignDescription = "Larvae bore into central stem, extruding granular sawdust frass from entry holes; central growing whorl dries and dies while lower leaves stay green.",
+                targetThreatId = "maize_stem_borer",
+                targetCrops = listOf("Maize & Cereals", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_bacterial_wilt_vascular",
+                plantOrgan = "Stalks & Stems",
+                primarySymptom = "Sudden daytime wilting + brown vascular ring & bacterial streaming",
+                detailedSignDescription = "Rapid flaccid wilting during midday sun while foliage remains green; cut stem in clear water releases milky white bacterial streaming threads.",
+                targetThreatId = "bacterial_wilt",
+                targetCrops = listOf("Tomato & Potato", "All Crops")
+            ),
+
+            // FLOWERS & BUDS
+            FactualDiagnosticKey(
+                id = "key_thrips_silvering",
+                plantOrgan = "Flowers & Buds",
+                primarySymptom = "Silvery petal patches, dark fecal flecks & distorted buds",
+                detailedSignDescription = "Tiny slender yellow/brown insects moving rapidly inside flower petals; silvery bleached scars on petals and shoot tips with black speckling.",
+                targetThreatId = "western_flower_thrips",
+                targetCrops = listOf("Roses & Carnations", "Beans & Legumes", "Tomato & Potato", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_botrytis_grey_mold",
+                plantOrgan = "Flowers & Buds",
+                primarySymptom = "Grey fluffy mold sporulation + water-soaked petal spots",
+                detailedSignDescription = "Small pinpoint water-soaked flecks on petals turning into mass of grey velvety fungal spores; flower buds rot and collapse.",
+                targetThreatId = "botrytis_blight",
+                targetCrops = listOf("Roses & Carnations", "Beans & Legumes", "Tomato & Potato", "All Crops")
+            ),
+
+            // FRUITS & PODS
+            FactualDiagnosticKey(
+                id = "key_bollworm_boreholes",
+                plantOrgan = "Fruits & Pods",
+                primarySymptom = "Circular boreholes in fruits/pods + internal frass cavities",
+                detailedSignDescription = "Caterpillars boring half-submerged into tomato fruits, French bean pods, or bolls; cavities contaminated with frass leading to secondary soft rot.",
+                targetThreatId = "african_bollworm",
+                targetCrops = listOf("Tomato & Potato", "Beans & Legumes", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_maruca_pod_webbing",
+                plantOrgan = "Fruits & Pods",
+                primarySymptom = "Legume pod borer with webbed flower clusters & pod boreholes",
+                detailedSignDescription = "Larvae web flowers, leaves, and pods together with silk; bore into green pods leaving frass-plugged holes; flowers drop prematurely.",
+                targetThreatId = "maruca_pod_borer",
+                targetCrops = listOf("Beans & Legumes", "All Crops")
+            ),
+
+            // WHOLE PLANT & CROWN
+            FactualDiagnosticKey(
+                id = "key_striga_parasitic_spikes",
+                plantOrgan = "Whole Plant & Crown",
+                primarySymptom = "Pink-purple spiked parasitic plants emerging at cereal root crowns",
+                detailedSignDescription = "Host maize/sorghum shows severe stunting, drought-like leaf scorching, and chlorosis; bright pinkish-purple flowers clustered around host roots.",
+                targetThreatId = "weed_striga",
+                targetCrops = listOf("Maize & Cereals", "Soil & General", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_nutsedge_tubers",
+                plantOrgan = "Whole Plant & Crown",
+                primarySymptom = "Erect triangular stems, purple spikelets & underground tuber chain",
+                detailedSignDescription = "Aggressive sedge with sharp three-sided stem; extensive underground rhizome network with hard nut-like dormant tubers; indicates plow pan compaction.",
+                targetThreatId = "weed_purple_nutsedge",
+                targetCrops = listOf("Soil & General", "All Crops")
+            ),
+
+            // SOIL & ROOTS
+            FactualDiagnosticKey(
+                id = "key_nitisol_p_fixation",
+                plantOrgan = "Soil & Roots",
+                primarySymptom = "Deep dusky red volcanic soil + severe phosphorus purpling",
+                detailedSignDescription = "Friable red clay loam (Nitisol) with pH < 5.2; active iron/aluminum oxides fix broadcast DAP; lower crop leaves turn reddish-purple.",
+                targetThreatId = "soil_humic_nitisol",
+                targetCrops = listOf("Soil & General", "All Crops")
+            ),
+            FactualDiagnosticKey(
+                id = "key_vertisol_cracking_waterlog",
+                plantOrgan = "Soil & Roots",
+                primarySymptom = "Black cracking clay + severe seasonal waterlogging & root suffocation",
+                detailedSignDescription = "Deep summer dessication cracks and heavy plastic stickiness when wet (Pellic Vertisol); poor root aeration during rainy season.",
+                targetThreatId = "soil_pellic_vertisol",
+                targetCrops = listOf("Soil & General", "All Crops")
+            )
         )
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            plantParts.forEach { part ->
-                val isSelected = selectedPart == part
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .clickable { selectedPart = part }
-                        .testTag("part_pill_$part")
-                ) {
-                    Text(
-                        text = part,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                    )
-                }
-            }
+    }
+
+    val filteredKeys = remember(selectedOrgan, selectedCropFilter) {
+        factualKeys.filter { key ->
+            val organMatch = key.plantOrgan == selectedOrgan
+            val cropMatch = (selectedCropFilter == "All Crops") || key.targetCrops.contains(selectedCropFilter) || key.targetCrops.contains("All Crops")
+            organMatch && cropMatch
         }
+    }
 
-        Spacer(modifier = Modifier.height(16.dp))
+    val selectedThreat = remember(selectedKeyId) {
+        val key = factualKeys.find { it.id == selectedKeyId }
+        if (key != null) {
+            ThreatCatalog.allThreats.find { it.id == key.targetThreatId }
+        } else null
+    }
 
-        // Step 3: Check Visible Symptoms
-        Text(
-            text = "3. Check All Visible Field Symptoms:",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            availableSymptoms.forEach { symptom ->
-                val isChecked = selectedSymptoms.contains(symptom.id)
-                Card(
-                    onClick = {
-                        if (isChecked) selectedSymptoms.remove(symptom.id)
-                        else selectedSymptoms.add(symptom.id)
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isChecked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                    ),
-                    border = if (isChecked) {
-                        androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-                    } else null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("symptom_checkbox_${symptom.id}")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = { checked ->
-                                if (checked) selectedSymptoms.add(symptom.id)
-                                else selectedSymptoms.remove(symptom.id)
-                            },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = symptom.title,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isChecked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = symptom.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isChecked) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Diagnosis Results Section
-        Text(
-            text = "Diagnostic Match Results (${diagnosticMatches.size}):",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (diagnosticMatches.isEmpty()) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            // Header card
             Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Select a crop, plant part, and check matching symptoms above to compute match probability.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                diagnosticMatches.forEach { (threat, confidence) ->
-                    Card(
-                        onClick = { onThreatClick(threat) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("diagnose_result_${threat.id}")
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(
-                                        imageVector = if (threat.type == ThreatType.DISEASE) Icons.Default.Coronavirus else Icons.Default.BugReport,
-                                        contentDescription = null,
-                                        tint = if (threat.type == ThreatType.DISEASE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
-                                        Text(
-                                            text = threat.name,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = threat.scientificName,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
+                        Icon(Icons.Default.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Factual Botanical Symptom Key",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "100% verified pathogen & pest diagnostics without false guesses",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
 
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = when {
-                                        confidence >= 80 -> Color(0xFFE8F5E9)
-                                        confidence >= 50 -> Color(0xFFFFF3E0)
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                ) {
-                                    Text(
-                                        text = "$confidence% Match",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = when {
-                                            confidence >= 80 -> Color(0xFF2E7D32)
-                                            confidence >= 50 -> Color(0xFFE65100)
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
+        item {
+            // Step 1: Select Affected Plant Organ
+            Text(
+                text = "1. Select Plant Organ Showing Symptoms:",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                plantOrgans.forEach { organ ->
+                    FilterChip(
+                        selected = selectedOrgan == organ,
+                        onClick = {
+                            selectedOrgan = organ
+                            selectedKeyId = null
+                        },
+                        label = { Text(organ, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.testTag("chip_organ_${organ.take(4)}")
+                    )
+                }
+            }
+        }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+        item {
+            // Step 2: Crop Filter
+            Text(
+                text = "2. Filter by Crop Context:",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                cropsList.forEach { crop ->
+                    FilterChip(
+                        selected = selectedCropFilter == crop,
+                        onClick = {
+                            selectedCropFilter = crop
+                            selectedKeyId = null
+                        },
+                        label = { Text(crop, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.testTag("chip_crop_${crop.take(4)}")
+                    )
+                }
+            }
+        }
 
-                            Text(
-                                text = threat.summary,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 2,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+        item {
+            Text(
+                text = "3. Tap Exact Observable Field Sign (${filteredKeys.size} options):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+        items(filteredKeys, key = { it.id }) { key ->
+            val isSelected = selectedKeyId == key.id
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        selectedKeyId = if (isSelected) null else key.id
+                    }
+                    .testTag("symptom_key_${key.id}")
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = key.primarySymptom,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = key.detailedSignDescription,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+        // Factual Verified Diagnostic Result Card
+        if (selectedThreat != null) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("verified_diagnostic_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary
                             ) {
                                 Text(
-                                    text = "${threat.lifecycleStages.size} Lifecycle Stages • ${threat.ipmPlan.chemicalControls.size} Active Ingredients",
+                                    text = "100% FACTUAL MATCH",
+                                    color = Color.White,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
+                            }
+                            Text(
+                                text = selectedThreat.type.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = selectedThreat.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = selectedThreat.scientificName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Economic threshold
+                        Text(
+                            text = "Scouting & Economic Threshold:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = selectedThreat.economicThresholdInfo.ifBlank { "Intervene immediately upon first symptom detection" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // PCPB Registered Control
+                        val pcpbChem = selectedThreat.pcpbChemicals.firstOrNull()
+                        if (pcpbChem != null) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
                                     Text(
-                                        text = "View Life Cycle & IPM",
+                                        text = "Official PCPB Registered Agrochemical:",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowForward,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(14.dp)
+                                    Text(
+                                        text = "${pcpbChem.tradeName} (${pcpbChem.activeIngredient})",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "Knapsack Dose: ${pcpbChem.knapsackDosage} • Per Ha: ${pcpbChem.perHaDosage}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = "PHI: ${pcpbChem.phiDays} days • REI: ${pcpbChem.reiHours} hours • Reg: ${pcpbChem.pcpbRegNo}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                     )
                                 }
                             }
                         }
+
+                        // CABI Biocontrol
+                        val cabiBio = selectedThreat.cabiBioProtections.firstOrNull()
+                        if (cabiBio != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFE8F5E9),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = "CABI Biological Control Agent:",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2E7D32)
+                                    )
+                                    Text(
+                                        text = "${cabiBio.tradeName} (${cabiBio.activeAgent})",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B5E20)
+                                    )
+                                    Text(
+                                        text = "${cabiBio.modeOfAction}. Rate: ${cabiBio.applicationRate}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF2E7D32)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Button(
+                            onClick = { onThreatClick(selectedThreat) },
+                            modifier = Modifier.fillMaxWidth().testTag("view_full_dossier_btn")
+                        ) {
+                            Text("Open Complete Dossier & Lifecycle Stages")
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+/**
+ * TAB 2: Searchable A-Z Pest, Disease, Weed & Soil Compendium
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FactualCompendiumSearchView(
+    onThreatClick: (CropThreat) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedThreatType by remember { mutableStateOf<ThreatType?>(null) }
+
+    val allThreats = ThreatCatalog.allThreats
+
+    val filteredThreats = remember(searchQuery, selectedThreatType) {
+        allThreats.filter { threat ->
+            val matchesType = selectedThreatType == null || threat.type == selectedThreatType
+            val matchesSearch = searchQuery.isBlank() ||
+                    threat.name.contains(searchQuery, ignoreCase = true) ||
+                    threat.scientificName.contains(searchQuery, ignoreCase = true) ||
+                    threat.targetCrops.any { it.contains(searchQuery, ignoreCase = true) } ||
+                    threat.summary.contains(searchQuery, ignoreCase = true) ||
+                    threat.diagnosticKeys.any { it.contains(searchQuery, ignoreCase = true) }
+            matchesType && matchesSearch
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Search by pest, disease, crop or symptom...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("compendium_search_input")
+            )
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                FilterChip(
+                    selected = selectedThreatType == null,
+                    onClick = { selectedThreatType = null },
+                    label = { Text("All (${allThreats.size})") },
+                    modifier = Modifier.testTag("chip_threat_all")
+                )
+                FilterChip(
+                    selected = selectedThreatType == ThreatType.PEST,
+                    onClick = { selectedThreatType = if (selectedThreatType == ThreatType.PEST) null else ThreatType.PEST },
+                    label = { Text("Insect & Mite Pests") },
+                    leadingIcon = { Icon(Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.testTag("chip_threat_pest")
+                )
+                FilterChip(
+                    selected = selectedThreatType == ThreatType.DISEASE,
+                    onClick = { selectedThreatType = if (selectedThreatType == ThreatType.DISEASE) null else ThreatType.DISEASE },
+                    label = { Text("Fungal & Bacterial Diseases") },
+                    leadingIcon = { Icon(Icons.Default.Coronavirus, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.testTag("chip_threat_disease")
+                )
+                FilterChip(
+                    selected = selectedThreatType == ThreatType.WEED,
+                    onClick = { selectedThreatType = if (selectedThreatType == ThreatType.WEED) null else ThreatType.WEED },
+                    label = { Text("Invasive Weeds") },
+                    leadingIcon = { Icon(Icons.Default.Grass, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.testTag("chip_threat_weed")
+                )
+                FilterChip(
+                    selected = selectedThreatType == ThreatType.SOIL,
+                    onClick = { selectedThreatType = if (selectedThreatType == ThreatType.SOIL) null else ThreatType.SOIL },
+                    label = { Text("Soil Health & Orders") },
+                    leadingIcon = { Icon(Icons.Default.Terrain, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.testTag("chip_threat_soil")
+                )
+            }
+        }
+
+        items(filteredThreats, key = { it.id }) { threat ->
+            Card(
+                onClick = { onThreatClick(threat) },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("threat_item_${threat.id}")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = when (threat.type) {
+                                ThreatType.PEST -> MaterialTheme.colorScheme.errorContainer
+                                ThreatType.DISEASE -> MaterialTheme.colorScheme.primaryContainer
+                                ThreatType.WEED -> MaterialTheme.colorScheme.tertiaryContainer
+                                ThreatType.SOIL -> MaterialTheme.colorScheme.secondaryContainer
+                            }
+                        ) {
+                            Text(
+                                text = threat.type.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                        Text(
+                            text = "Severity: ${threat.severityLevel}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (threat.severityLevel == "Extreme" || threat.severityLevel == "Severe") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = threat.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = threat.scientificName,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = threat.summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Target Crops: ${threat.targetCrops.take(3).joinToString(", ")}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

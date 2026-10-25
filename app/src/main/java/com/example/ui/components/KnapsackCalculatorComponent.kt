@@ -87,7 +87,7 @@ fun KnapsackCalculatorComponent(
     // 1. Knapsack capacity state
     var tankCapacityInput by remember { mutableStateOf(initialTankLiters.toString().removeSuffix(".0")) }
     val tankCapacityLiters by remember {
-        derivedStateOf { tankCapacityInput.toDoubleOrNull()?.coerceIn(1.0, 50.0) ?: 16.0 }
+        derivedStateOf { tankCapacityInput.toDoubleOrNull()?.coerceIn(1.0, 5000.0) ?: 16.0 }
     }
 
     // 2. Chemical concentration state (ml/L or g/L)
@@ -186,13 +186,13 @@ fun KnapsackCalculatorComponent(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Knapsack Sprayer Dosage Calculator",
+                        text = if (tankCapacityLiters >= 500.0) "Commercial Tank & Boom Sprayer (${tankCapacityLiters.toInt()}L)" else "Knapsack & Commercial Tank Sprayer (16L – 2000L)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Compute exact pesticide ml or grams per tank & entire plot",
+                        text = "Calculates exact chemical ml, grams, or kg for 16L knapsacks up to 2000L central farm tanks",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -201,20 +201,22 @@ fun KnapsackCalculatorComponent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // SECTION 1: Knapsack Capacity
+            // SECTION 1: Knapsack / Tank Capacity
             Text(
-                text = "1. Knapsack Tank Capacity (Liters):",
+                text = "1. Tank Capacity (16L Knapsack to 2000L Commercial/Tractor Tank):",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(6.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(15.0, 16.0, 18.0, 20.0).forEach { size ->
-                    val isSelected = tankCapacityLiters == size
+                listOf(16.0, 20.0, 100.0, 200.0, 500.0, 800.0, 1000.0, 1500.0, 2000.0).forEach { size ->
+                    val isSelected = kotlin.math.abs(tankCapacityLiters - size) < 0.1
                     val bgColor by animateColorAsState(
                         targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                         label = "tank_btn"
@@ -223,17 +225,16 @@ fun KnapsackCalculatorComponent(
                         shape = RoundedCornerShape(10.dp),
                         color = bgColor,
                         modifier = Modifier
-                            .weight(1f)
                             .clickable { tankCapacityInput = size.toInt().toString() }
                             .testTag("tank_preset_${size.toInt()}")
                     ) {
                         Column(
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "${size.toInt()}L",
-                                style = MaterialTheme.typography.titleSmall,
+                                text = if (size >= 500.0) "${size.toInt()}L (Boom/Tank)" else "${size.toInt()}L",
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                             )

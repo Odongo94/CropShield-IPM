@@ -62,12 +62,16 @@ import androidx.compose.ui.unit.sp
 import com.example.data.science.AgriculturalSciencesCatalog
 import com.example.model.DeveloperInfo
 
+import androidx.compose.material.icons.filled.MenuBook
+import com.example.ui.screens.science.AgriculturalJournalsView
+
 enum class SciencePillarTab(val title: String, val icon: ImageVector) {
     SOIL_SCIENCE("Soil Science", Icons.Default.Terrain),
     PATHOLOGY("Crop Pathology", Icons.Default.Coronavirus),
     ENTOMOLOGY("Entomology", Icons.Default.BugReport),
     AGRONOMY("Agronomy", Icons.Default.Agriculture),
-    CONSERVATION("Conservation", Icons.Default.WaterDrop)
+    CONSERVATION("Conservation", Icons.Default.WaterDrop),
+    JOURNALS_LEARNING("Journals & Quiz", Icons.Default.MenuBook)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -82,7 +86,7 @@ fun AgriculturalSciencesView(
             .fillMaxSize()
             .testTag("agricultural_sciences_view")
     ) {
-        // Tab selector for the 5 Pillars
+        // Tab selector for the Science Pillars & Journals
         SecondaryTabRow(
             selectedTabIndex = activeTab,
             containerColor = MaterialTheme.colorScheme.surface,
@@ -107,13 +111,16 @@ fun AgriculturalSciencesView(
             }
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            when (SciencePillarTab.values()[activeTab]) {
+        if (SciencePillarTab.values()[activeTab] == SciencePillarTab.JOURNALS_LEARNING) {
+            AgriculturalJournalsView(modifier = Modifier.fillMaxSize())
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                when (SciencePillarTab.values()[activeTab]) {
                 // =============================================================
                 // PILLAR 1: SOIL SCIENCE & EDAPHOLOGY
                 // =============================================================
@@ -556,9 +563,13 @@ fun AgriculturalSciencesView(
                         }
                     }
                 }
+                SciencePillarTab.JOURNALS_LEARNING -> {
+                    // Handled in top branch
+                }
             }
         }
     }
+}
 }
 
 @Composable

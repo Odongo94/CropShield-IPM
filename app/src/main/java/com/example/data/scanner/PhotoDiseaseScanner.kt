@@ -535,7 +535,7 @@ object PhotoDiseaseScanner {
             }
         }
 
-        val confidence = if (symptomsDetected.size >= 3) 93 else 87
+        val confidence = 68 // Honest optical pre-screening confidence
         val selectedChem = matchedThreat.ipmPlan.chemicalControls.firstOrNull()
 
         val pcpbChem = matchedThreat.pcpbChemicals.firstOrNull()?.let {
@@ -550,6 +550,8 @@ object PhotoDiseaseScanner {
             "${it.title} - ${it.description}"
         } ?: ""
 
+        val analysisText = "Optical Chromatic Pre-Screening: Foliar Health ${(greenHealthyCount * 100f / totalPixels).toInt()}%, Chlorosis/Yellowing ${(yellowRatio * 100f).toInt()}%, Necrotic Lesions ${(necroticRatio * 100f).toInt()}%. Candidate identification: ${matchedThreat.name} (${matchedThreat.scientificName}). To verify factual accuracy and avoid false positives, confirm against the physical field symptoms: ${symptomsDetected.joinToString("; ")}. Use the Factual Symptom Key to confirm."
+
         return ScanDiagnosisResult(
             threat = matchedThreat,
             threatId = matchedThreat.id,
@@ -563,7 +565,7 @@ object PhotoDiseaseScanner {
             recommendedChemicals = matchedThreat.pcpbChemicals.map { "${it.tradeName} (${it.activeIngredient}) - ${it.knapsackDosage}" },
             recommendedChemicalObject = selectedChem,
             isOnlineAiAnalysis = false,
-            detailedAnalysisText = "${matchedThreat.summary} Diagnosed using CropShield offline optical pattern recognition engine with local Room IPM database.",
+            detailedAnalysisText = analysisText,
             cabiBiocontrolSolution = cabiBiocontrol,
             infonetOrganicAction = infonetAction,
             pcpbRegisteredSolution = pcpbChem,

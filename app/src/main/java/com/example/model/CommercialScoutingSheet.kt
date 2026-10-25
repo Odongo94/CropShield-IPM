@@ -38,11 +38,11 @@ data class BayScoutingRow(
  * Complete Commercial Scouting Sheet ready for display and Excel (.csv) export.
  */
 data class CommercialScoutingSheet(
-    val farmName: String = "Shalimar Fresh Limited",
+    val farmName: String = "Commercial Shamba / Greenhouse",
     val phase: String = "Phase 1",
     val ghNo: String = "GH 01",
     val wkNo: String = "WK 43",
-    val date: String = "24/10/2026",
+    val date: String = "25/10/2026",
     val rows: List<BayScoutingRow> = emptyList()
 ) {
     /**
