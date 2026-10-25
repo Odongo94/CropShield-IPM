@@ -49,6 +49,7 @@ enum class AppScreen {
     FIELD_MAP,
     LIFECYCLE_LAB,
     CALCULATOR,
+    SOIL_CALCULATOR,
     FIELD_NOTES,
     SCOUT_LOG,
     SCOUTING_SHEETS,

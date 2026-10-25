@@ -215,7 +215,7 @@ fun AgronomyScreen(
                             onClick = { weedSubSection = 0 },
                             text = {
                                 Text(
-                                    "Soil Nutrition Diagnostician",
+                                    "Soil Texture & Rotation",
                                     fontWeight = if (weedSubSection == 0) FontWeight.Bold else FontWeight.Medium,
                                     style = MaterialTheme.typography.labelMedium
                                 )
@@ -226,24 +226,37 @@ fun AgronomyScreen(
                             onClick = { weedSubSection = 1 },
                             text = {
                                 Text(
-                                    "Kenya Weed Catalog & Herbicides",
+                                    "Soil Nutrition Diagnostician",
                                     fontWeight = if (weedSubSection == 1) FontWeight.Bold else FontWeight.Medium,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        )
+                        Tab(
+                            selected = weedSubSection == 2,
+                            onClick = { weedSubSection = 2 },
+                            text = {
+                                Text(
+                                    "Kenya Weed Catalog & Herbicides",
+                                    fontWeight = if (weedSubSection == 2) FontWeight.Bold else FontWeight.Medium,
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
                         )
                     }
 
-                    if (weedSubSection == 0) {
-                        WeedSoilDiagnosticianView()
-                    } else {
-                        WeedManagementTab(
-                            weeds = weedList,
-                            searchQuery = weedQuery,
-                            selectedType = selectedWeedType,
-                            onSearchChanged = onWeedQueryChanged,
-                            onTypeSelected = onWeedTypeSelected
-                        )
+                    when (weedSubSection) {
+                        0 -> com.example.ui.screens.soil.SoilClassificationScreen()
+                        1 -> WeedSoilDiagnosticianView()
+                        else -> {
+                            WeedManagementTab(
+                                weeds = weedList,
+                                searchQuery = weedQuery,
+                                selectedType = selectedWeedType,
+                                onSearchChanged = onWeedQueryChanged,
+                                onTypeSelected = onWeedTypeSelected
+                            )
+                        }
                     }
                 }
             }

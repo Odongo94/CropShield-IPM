@@ -75,7 +75,8 @@ import com.example.ui.components.KnapsackCalculatorComponent
 
 enum class CalculatorMode(val title: String) {
     FERTILIZER("Knapsack Fertilizer"),
-    PESTICIDE("Pesticide Dilution")
+    PESTICIDE("Pesticide Dilution"),
+    SOIL_CLASSIFIER("Soil Classification")
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -126,7 +127,11 @@ fun CalculatorScreen(
                     },
                     icon = {
                         Icon(
-                            imageVector = if (mode == CalculatorMode.FERTILIZER) Icons.Default.Agriculture else Icons.Default.Medication,
+                            imageVector = when (mode) {
+                                CalculatorMode.FERTILIZER -> Icons.Default.Agriculture
+                                CalculatorMode.PESTICIDE -> Icons.Default.Medication
+                                CalculatorMode.SOIL_CLASSIFIER -> Icons.Default.Terrain
+                            },
                             contentDescription = mode.title,
                             modifier = Modifier.size(20.dp)
                         )
@@ -158,6 +163,10 @@ fun CalculatorScreen(
                     initialThreat = initialThreat,
                     initialChemical = initialChemical
                 )
+            }
+
+            CalculatorMode.SOIL_CLASSIFIER -> {
+                com.example.ui.screens.soil.SoilClassificationScreen()
             }
         }
     }

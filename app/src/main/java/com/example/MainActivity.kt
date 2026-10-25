@@ -140,6 +140,7 @@ fun CropShieldApp(viewModel: CropShieldViewModel = viewModel()) {
                                 AppScreen.DIAGNOSE -> "Symptom Diagnosis"
                                 AppScreen.LIFECYCLE_LAB -> "Lifecycle Lab"
                                 AppScreen.CALCULATOR -> "Knapsack Fertilizer Calculator"
+                                AppScreen.SOIL_CALCULATOR -> "Soil Texture & Rotation Calculator"
                                 AppScreen.FIELD_NOTES -> "Field Notes & Observations"
                                 AppScreen.SCOUT_LOG -> "Field Scouting Logs"
                                 AppScreen.SCOUTING_SHEETS -> "Scouting Sheets & Protocols"
@@ -482,6 +483,12 @@ fun CropShieldApp(viewModel: CropShieldViewModel = viewModel()) {
                             initialThreat = selectedThreat,
                             initialChemical = selectedChemical,
                             onNavigateToFieldMap = { viewModel.navigateTo(AppScreen.FIELD_MAP) }
+                        )
+                    }
+
+                    AppScreen.SOIL_CALCULATOR -> {
+                        com.example.ui.screens.soil.SoilClassificationScreen(
+                            onNavigateBack = { viewModel.navigateBack() }
                         )
                     }
 
